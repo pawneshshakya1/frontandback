@@ -9,6 +9,7 @@ node_modules/
 .env.test.local
 .env.production.local
 backend/.env
+frontend/.env*.local
 
 # Build and Output
 backend/coverage/
@@ -18,6 +19,7 @@ frontend/expo-env.d.ts
 frontend/tsconfig.tsbuildinfo
 frontend/ios/
 frontend/android/
+frontend/.expo/
 
 # Database files
 *.db
@@ -30,13 +32,15 @@ yarn-debug.log*
 yarn-error.log*
 boot.log
 
-# IDE / Tool Caches
+# IDE / Tool Caches / OS files
 .claude/
 .claude-flow/
 .swarm/
 .perfect-files.json
 .DS_Store
 Thumbs.db
+.vscode/
+.idea/
 
 # Native Keys / Prov / Certs (Expo/RN)
 frontend/.kotlin/
