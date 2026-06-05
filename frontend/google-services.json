@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "720256141382",
+        "project_id": "battlecore-e9bf1",
+        "storage_bucket": "battlecore-e9bf1.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:720256141382:android:c5csgdghd39450581b36247",
+                "android_client_info": {
+                    "package_name": "com.esports.battlecore"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyAkt12DfMqJFFf6mbdfvjd4bo4FiqnR8Tg"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}

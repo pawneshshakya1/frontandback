@@ -1,0 +1,36 @@
+const express = require('express');
+const router = express.Router();
+const matchController = require('../controllers/match.controller');
+const { protect } = require('../middlewares/auth.middleware');
+
+router.post('/', protect, matchController.create);
+router.post('/join', protect, matchController.join);
+router.post('/:id/join', protect, matchController.joinByMatchId);
+router.post('/leave', protect, matchController.leave);
+router.post('/join-by-code', protect, matchController.joinByCode);
+router.post('/initiate-payment', protect, matchController.initiatePayment);
+router.post('/confirm-cashfree-join', protect, matchController.confirmCashfreeJoin);
+router.post('/:id/result', protect, matchController.submitResult);
+router.post('/:id/approve', protect, matchController.approveResult);
+router.post('/:id/cancel', protect, matchController.cancelEvent);
+router.post('/:id/share', protect, matchController.shareEvent);
+router.post('/:id/submit', protect, matchController.submitParticipantResult);
+router.post('/:id/ai-analyze', protect, matchController.aiAnalyze);
+router.post('/:id/reject', protect, matchController.rejectResult);
+router.post('/:id/select-winner', protect, matchController.selectWinner);
+router.post('/:id/publish-draft', protect, matchController.publishDraft);
+router.post('/:id/room-credentials', protect, matchController.setRoomCredentials);
+router.get('/', protect, matchController.getMatches);
+router.get('/my-matches', protect, matchController.getJoinedMatches);
+router.get('/created', protect, matchController.getCreatedMatches);
+router.get('/drafts', protect, matchController.getDrafts);
+router.get('/invites', protect, matchController.getInvites);
+router.get('/mediator/check', protect, matchController.checkMediatorStatus);
+router.get('/mediator/all', protect, matchController.getMediatorMatches);
+router.get('/daily-limit', protect, matchController.getDailyLimit);
+router.get('/share/:token', matchController.getEventByShareToken);
+router.put('/:id', protect, matchController.update);
+router.delete('/:id', protect, matchController.remove);
+router.get('/:id', protect, matchController.getMatch);
+
+module.exports = router;
