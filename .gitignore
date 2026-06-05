@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Env / Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+
+# Build and Output
+backend/coverage/
+frontend/dist/
+frontend/web-build/
+frontend/expo-env.d.ts
+frontend/tsconfig.tsbuildinfo
+frontend/ios/
+frontend/android/
+
+# Database files
+*.db
+ruvector.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+boot.log
+
+# IDE / Tool Caches
+.claude/
+.claude-flow/
+.swarm/
+.perfect-files.json
+.DS_Store
+Thumbs.db
+
+# Native Keys / Prov / Certs (Expo/RN)
+frontend/.kotlin/
+frontend/*.orig.*
+frontend/*.jks
+frontend/*.p8
+frontend/*.p12
+frontend/*.key
+frontend/*.mobileprovision
+frontend/*.pem
+
+# Metro / Packager caches
+frontend/.metro-health-check*
