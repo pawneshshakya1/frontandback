@@ -33,9 +33,6 @@ yarn-error.log*
 boot.log
 
 # IDE / Tool Caches / OS files
-.claude/
-.claude-flow/
-.swarm/
 .perfect-files.json
 .DS_Store
 Thumbs.db

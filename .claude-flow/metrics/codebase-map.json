@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-06-04T16:09:36.881Z",
+  "projectRoot": "D:\\batuk\\frontandback",
+  "structure": {
+    "hasPackageJson": false,
+    "hasTsConfig": false,
+    "hasClaudeConfig": true,
+    "hasClaudeFlow": true
+  },
+  "scannedAt": 1780589376882
+}
