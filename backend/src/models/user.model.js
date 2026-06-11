@@ -86,6 +86,10 @@ const UserSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  pending_pass_type: {
+    type: String,
+    default: null,
+  },
   // ============ USER ELITE PASS EVENT QUOTA ============
   // For user (non-partner) passes: total events the user can host
   // for the duration of the active pass.

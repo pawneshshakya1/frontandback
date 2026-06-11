@@ -9,7 +9,6 @@ import {
     ActivityIndicator,
     RefreshControl,
     Image,
-    Alert,
     Modal,
     TextInput,
     KeyboardAvoidingView,
@@ -23,11 +22,13 @@ import { COLORS, SPACING, RADIUS } from "../../theme/colors";
 import { adminAPI } from "../../services/api";
 import { Button } from "../../components/Button";
 import { LoadingOverlay } from "../../components/LoadingOverlay";
+import { usePopup } from "../../components/PopupModal";
 
 type TabType = "PENDING" | "APPROVED" | "REJECTED";
 
 const MediatorApprovalScreenAdmin = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const { showConfirm, showSuccess, showError, showInfo, PopupElement } = usePopup();
     const [tab, setTab] = useState<TabType>("PENDING");
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -64,27 +65,22 @@ const MediatorApprovalScreenAdmin = ({ navigation }: any) => {
     };
 
     const handleApprove = (user: any) => {
-        Alert.alert(
+        showConfirm(
             "Approve Mediator",
             `Grant mediator role to @${user.username}?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Approve",
-                    onPress: async () => {
-                        try {
-                            setActionLoading(user._id);
-                            await adminAPI.approveMediator(user._id);
-                            fetchApplications(tab);
-                            Alert.alert("Success", `@${user.username} is now a Mediator.`);
-                        } catch (err: any) {
-                            Alert.alert("Error", err.response?.data?.message || "Failed to approve");
-                        } finally {
-                            setActionLoading(null);
-                        }
-                    },
-                },
-            ]
+            async () => {
+                try {
+                    setActionLoading(user._id);
+                    await adminAPI.approveMediator(user._id);
+                    fetchApplications(tab);
+                    showSuccess("Success", `@${user.username} is now a Mediator.`);
+                } catch (err: any) {
+                    showError("Error", err.response?.data?.message || "Failed to approve");
+                } finally {
+                    setActionLoading(null);
+                }
+            },
+            "Approve"
         );
     };
 
@@ -99,9 +95,9 @@ const MediatorApprovalScreenAdmin = ({ navigation }: any) => {
             setRejectNote("");
             setSelectedUser(null);
             fetchApplications(tab);
-            Alert.alert("Done", "Application rejected.");
+            showInfo("Done", "Application rejected.");
         } catch (err: any) {
-            Alert.alert("Error", err.response?.data?.message || "Failed to reject");
+            showError("Error", err.response?.data?.message || "Failed to reject");
         } finally {
             setActionLoading(null);
         }
@@ -154,7 +150,7 @@ const MediatorApprovalScreenAdmin = ({ navigation }: any) => {
             ) : (
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
                 >
                     {users.length === 0 ? (
@@ -280,6 +276,7 @@ const MediatorApprovalScreenAdmin = ({ navigation }: any) => {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
+            <PopupElement />
         </View>
     );
 };
@@ -300,7 +297,7 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-        paddingHorizontal: 20, paddingBottom: 16,
+        paddingHorizontal: 16, paddingBottom: 16,
     },
     backButton: {
         width: 40, height: 40, borderRadius: 20,
@@ -311,7 +308,7 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 20, fontWeight: "bold", color: "white" },
     headerSub: { fontSize: 10, color: `${COLORS.textMuted}66`, marginTop: 2 },
     tabRow: {
-        flexDirection: "row", gap: 10, paddingHorizontal: 20,
+        flexDirection: "row", gap: 10, paddingHorizontal: 16,
         marginBottom: 16,
     },
     tabBtn: {

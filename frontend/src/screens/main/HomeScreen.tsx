@@ -88,6 +88,13 @@ export const HomeScreen = ({ navigation }: any) => {
   };
 
   const currentPass = getPassInfo();
+  // Show promo only when user has NO active pass
+  // Check: pass_type is none/missing OR pass_expiry is null/expired
+  const userPassType = userProfile?.elite_pass_type || userProfile?.pass_type;
+  const hasActivePass = userPassType
+    && userPassType !== "none"
+    && userProfile?.pass_expiry
+    && new Date(userProfile.pass_expiry) > new Date();
 
   const loadInitialData = useCallback(async () => {
     try {
@@ -713,17 +720,23 @@ export const HomeScreen = ({ navigation }: any) => {
           </View>
         )}
 
-        {/* Elite Pass Promo */}
+        {/* Elite Pass Promo — only show when user has NO active pass */}
+        {/* User Stats */}
+        <SectionHeader
+          title="Upgrade"
+          accentColor={COLORS.success}
+          containerStyle={{ paddingHorizontal: 16, marginTop: 28 }}
+        />
         <View style={styles.partnerPromoContainer}>
           <GlassCard
             tag="New Feature"
-            tagColor={COLORS.primary}
+            tagColor="#fbbf24"
             subtitle="Upgrade now"
             title="Upgrade to Elite Pass"
             description="Get 50% extra winnings on every match, priority slot booking, and exclusive tournament access."
             icon="workspace-premium"
-            iconColor={COLORS.primary}
-            gradient={["rgba(244,123,37,0.25)", "rgba(234,88,12,0.15)"]}
+            iconColor="#fbbf24"
+            gradient={["rgba(251,191,36,0.25)", "rgba(217,119,6,0.15)"]}
             onAction={() => navigation.navigate("ElitePass")}
             onPress={() => navigation.navigate("ElitePass")}
           >
@@ -757,6 +770,7 @@ export const HomeScreen = ({ navigation }: any) => {
             </View>
           </GlassCard>
         </View>
+
 
         {/* User Stats */}
         <SectionHeader

@@ -10,7 +10,6 @@ import {
   Dimensions,
   StatusBar,
   Switch,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -18,12 +17,14 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { adminAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const SettingsScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const { signOut, authData } = useAuth();
+  const { showError, showInfo, PopupElement } = usePopup();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -47,7 +48,7 @@ export const SettingsScreenAdmin = ({ navigation }: any) => {
       signOut();
       navigation.navigate("Login");
     } catch (e: any) {
-      Alert.alert(
+      showError(
         "Error",
         e?.response?.data?.message || "Failed to delete account",
       );
@@ -143,7 +144,7 @@ export const SettingsScreenAdmin = ({ navigation }: any) => {
             iconBg="rgba(37,99,235,0.1)"
             iconColor={COLORS.accentBlue}
             onPress={() =>
-              Alert.alert(
+              showInfo(
                 "Graphics Quality",
                 "Graphics settings are automatically optimized for your device. This feature will be configurable in a future update.",
               )
@@ -155,7 +156,7 @@ export const SettingsScreenAdmin = ({ navigation }: any) => {
             title="Sound & Music" 
             iconBg="rgba(37,99,235,0.1)"
             iconColor={COLORS.accentBlue}
-            onPress={() => Alert.alert("Sound Settings", "Adjust SFX and Music volume.")} 
+            onPress={() => showInfo("Sound Settings", "Adjust SFX and Music volume.")} 
           />
           <View style={styles.divider} />
           <SettingItem 
@@ -266,6 +267,7 @@ export const SettingsScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -278,7 +280,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -301,7 +303,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     marginTop: 32,
   },
   sectionTitle: {
@@ -366,7 +368,7 @@ const styles = StyleSheet.create({
   },
   dangerDesc: {
     marginTop: 12,
-    paddingHorizontal: 28,
+    paddingHorizontal: 16,
     fontSize: 11,
     color: "rgba(255,255,255,0.3)",
     lineHeight: 18,
@@ -438,7 +440,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
     borderRadius: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     color: "white",
     fontSize: 16,
     fontWeight: "900",

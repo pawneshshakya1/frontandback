@@ -8,7 +8,6 @@ import {
   StatusBar,
   Dimensions,
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
   Switch,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import api from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -26,6 +26,7 @@ export const AppSettingsScreenAdmin = ({ navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
   const [editModal, setEditModal] = useState({ visible: false, key: "", label: "", value: "" });
+  const { showSuccess, showError, PopupElement } = usePopup();
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -65,11 +66,11 @@ export const AppSettingsScreenAdmin = ({ navigation }: any) => {
   const handleUpdateVersion = async () => {
     try {
       await api.post("/admin/app/version", { version: editModal.value, platform: editModal.key });
-      Alert.alert("Success", "App version updated");
+      showSuccess("Success", "App version updated");
       setEditModal({ visible: false, key: "", label: "", value: "" });
       loadSettings();
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || "Failed");
+      showError("Error", err.response?.data?.message || "Failed");
     }
   };
 
@@ -203,6 +204,7 @@ export const AppSettingsScreenAdmin = ({ navigation }: any) => {
       {/* Edit Version Modal */}
       <Modal visible={editModal.visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Update {editModal.label}</Text>
             <TextInput style={styles.input} placeholder="e.g. 2.1.0" placeholderTextColor="rgba(255,255,255,0.2)" value={editModal.value} onChangeText={(t) => setEditModal({ ...editModal, value: t })} />
@@ -217,6 +219,7 @@ export const AppSettingsScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -245,7 +248,7 @@ const styles = StyleSheet.create({
   infoLbl: { color: "rgba(255,255,255,0.35)", fontSize: 10 },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 },
+  modalOverlay: { flex: 1, justifyContent: "center", padding: 16 },
   modalContent: { backgroundColor: COLORS.surface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   modalTitle: { color: "white", fontSize: 18, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
   input: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 10, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 12, color: "white", fontSize: 16 },

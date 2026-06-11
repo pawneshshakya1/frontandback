@@ -11,7 +11,6 @@ import {
   Modal,
   TouchableWithoutFeedback,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -22,6 +21,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import api, { matchAPI } from "../../services/api";
 import { useFocusEffect } from "@react-navigation/native";
 import { FilterBottomSheet, FilterSection } from "../../components/FilterBottomSheet";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -39,6 +39,18 @@ export const JoinRoomScreen = ({ navigation }: any) => {
   const [joinCodeModal, setJoinCodeModal] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joining, setJoining] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: "success" | "error" | "warning" | "info" | "confirm";
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const categories = ["All", "Battle Royale", "Deathmatch", "Search & Destroy"];
 
@@ -73,7 +85,12 @@ export const JoinRoomScreen = ({ navigation }: any) => {
   const handleJoinByCode = async () => {
     const code = inviteCode.trim().toUpperCase();
     if (!code || code.length < 4) {
-      Alert.alert("Invalid Code", "Please enter a valid invite code");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Invalid Code",
+        message: "Please enter a valid invite code",
+      });
       return;
     }
     setJoining(true);
@@ -82,13 +99,36 @@ export const JoinRoomScreen = ({ navigation }: any) => {
       if (res.data.success) {
         setJoinCodeModal(false);
         setInviteCode("");
-        Alert.alert("Joined!", `You have successfully joined the event.`, [
-          { text: "View Details", onPress: () => navigation.navigate("MatchDetail", { matchId: res.data.data._id }) },
-          { text: "OK", onPress: () => fetchMatches() },
-        ]);
+        setPopup({
+          visible: true,
+          type: "success",
+          title: "Joined!",
+          message: "You have successfully joined the event.",
+          buttons: [
+            {
+              text: "View Details",
+              onPress: () => {
+                setPopup(p => ({ ...p, visible: false }));
+                navigation.navigate("MatchDetail", { matchId: res.data.data._id });
+              }
+            },
+            {
+              text: "OK",
+              onPress: () => {
+                setPopup(p => ({ ...p, visible: false }));
+                fetchMatches();
+              }
+            },
+          ]
+        });
       }
     } catch (error: any) {
-      Alert.alert("Join Failed", error.response?.data?.message || "Could not join event with this code");
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Join Failed",
+        message: error.response?.data?.message || "Could not join event with this code",
+      });
     } finally {
       setJoining(false);
     }
@@ -312,66 +352,81 @@ export const JoinRoomScreen = ({ navigation }: any) => {
         animationType="fade"
         onRequestClose={() => setJoinCodeModal(false)}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.codeModalOverlay}
+        <BlurView
+          intensity={80}
+          tint="dark"
+          style={StyleSheet.absoluteFill}
         >
-          <View style={styles.codeModalCard}>
-            <View style={styles.codeModalHeader}>
-              <View style={styles.codeModalIcon}>
-                <MaterialIcons name="vpn-key" size={22} color="#f47b25" />
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.codeModalOverlay}
+          >
+            <View style={styles.codeModalCard}>
+              <View style={styles.codeModalHeader}>
+                <View style={styles.codeModalIcon}>
+                  <MaterialIcons name="vpn-key" size={22} color="#f47b25" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.codeModalTitle}>Join by Invite Code</Text>
+                  <Text style={styles.codeModalSubtitle}>Enter the 6-character code shared by the host</Text>
+                </View>
+                <TouchableOpacity onPress={() => setJoinCodeModal(false)} style={styles.codeModalClose}>
+                  <MaterialIcons name="close" size={20} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.codeModalTitle}>Join by Invite Code</Text>
-                <Text style={styles.codeModalSubtitle}>Enter the 6-character code shared by the host</Text>
+
+              <TextInput
+                style={styles.codeInput}
+                placeholder="ABC123"
+                placeholderTextColor="rgba(255,255,255,0.2)"
+                value={inviteCode}
+                onChangeText={(t) => setInviteCode(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={6}
+                textAlign="center"
+              />
+
+              <View style={styles.codeModalActions}>
+                <TouchableOpacity
+                  style={styles.codeModalCancelBtn}
+                  onPress={() => {
+                    setJoinCodeModal(false);
+                    setInviteCode("");
+                  }}
+                  disabled={joining}
+                >
+                  <Text style={styles.codeModalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.codeModalJoinBtn, (joining || inviteCode.length < 4) && { opacity: 0.5 }]}
+                  onPress={handleJoinByCode}
+                  disabled={joining || inviteCode.length < 4}
+                >
+                  {joining ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="login" size={18} color="white" />
+                      <Text style={styles.codeModalJoinText}>JOIN</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => setJoinCodeModal(false)} style={styles.codeModalClose}>
-                <MaterialIcons name="close" size={20} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
             </View>
-
-            <TextInput
-              style={styles.codeInput}
-              placeholder="ABC123"
-              placeholderTextColor="rgba(255,255,255,0.2)"
-              value={inviteCode}
-              onChangeText={(t) => setInviteCode(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              maxLength={6}
-              textAlign="center"
-            />
-
-            <View style={styles.codeModalActions}>
-              <TouchableOpacity
-                style={styles.codeModalCancelBtn}
-                onPress={() => {
-                  setJoinCodeModal(false);
-                  setInviteCode("");
-                }}
-                disabled={joining}
-              >
-                <Text style={styles.codeModalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.codeModalJoinBtn, (joining || inviteCode.length < 4) && { opacity: 0.5 }]}
-                onPress={handleJoinByCode}
-                disabled={joining || inviteCode.length < 4}
-              >
-                {joining ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <>
-                    <MaterialIcons name="login" size={18} color="white" />
-                    <Text style={styles.codeModalJoinText}>JOIN</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </BlurView>
       </Modal>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -389,7 +444,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 12,
   },
   backButton: {
@@ -424,7 +479,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(244,123,37,0.1)",
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 40,
   },
@@ -562,6 +617,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignSelf: 'flex-start',
     marginBottom: 8,
+    marginHorizontal: 16,
   },
   dateChipText: {
     color: 'white',
@@ -579,6 +635,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 16,
+    marginBottom: 16,
   },
   dateFilterBtnText: {
     color: 'white',
@@ -621,10 +679,9 @@ const styles = StyleSheet.create({
   // Join Code Modal
   codeModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   codeModalCard: {
     width: '100%',

@@ -7,7 +7,6 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,6 +14,7 @@ import { MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import api from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { PopupModal } from "../../components/PopupModal";
 
 interface PaymentMethodScreenProps {
   navigation: any;
@@ -36,6 +36,18 @@ export const PaymentMethodScreen = ({ navigation, route }: PaymentMethodScreenPr
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentPreference, setPaymentPreference] = useState<string>("ASK_ALWAYS");
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: "success" | "error" | "warning" | "info" | "confirm";
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     loadWalletData();
@@ -68,14 +80,20 @@ export const PaymentMethodScreen = ({ navigation, route }: PaymentMethodScreenPr
     try {
       if (selectedMethod === "WALLET") {
         if (walletBalance < entryFee) {
-          Alert.alert(
-            "Insufficient Balance",
-            `Your wallet balance (₹${walletBalance}) is less than the entry fee (₹${entryFee}). Please add cash or choose Cashfree.`,
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Add Cash", onPress: () => navigation.navigate("AddCash") },
+          setPopup({
+            visible: true,
+            type: "warning",
+            title: "Insufficient Balance",
+            message: `Your wallet balance (₹${walletBalance}) is less than the entry fee (₹${entryFee}). Please add cash or choose Cashfree.`,
+            buttons: [
+              { text: "Cancel", style: "cancel", onPress: () => setPopup(p => ({ ...p, visible: false })) },
+              { text: "Add Cash", onPress: () => {
+                  setPopup(p => ({ ...p, visible: false }));
+                  navigation.navigate("AddCash");
+                }
+              },
             ]
-          );
+          });
           setIsProcessing(false);
           return;
         }
@@ -86,12 +104,21 @@ export const PaymentMethodScreen = ({ navigation, route }: PaymentMethodScreenPr
         });
 
         if (response.data.success) {
-          Alert.alert("Success", "You have successfully joined the match!", [
-            {
-              text: "OK",
-              onPress: () => navigation.navigate("MatchDetail", { matchId }),
-            },
-          ]);
+          setPopup({
+            visible: true,
+            type: "success",
+            title: "Success",
+            message: "You have successfully joined the match!",
+            buttons: [
+              {
+                text: "OK",
+                onPress: () => {
+                  setPopup(p => ({ ...p, visible: false }));
+                  navigation.navigate("MatchDetail", { matchId });
+                },
+              },
+            ]
+          });
         }
       } else {
         const response = await api.post("/matches/initiate-payment", {
@@ -111,10 +138,12 @@ export const PaymentMethodScreen = ({ navigation, route }: PaymentMethodScreenPr
         }
       }
     } catch (error: any) {
-      Alert.alert(
-        "Payment Failed",
-        error.response?.data?.message || "Something went wrong. Please try again."
-      );
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Payment Failed",
+        message: error.response?.data?.message || "Something went wrong. Please try again.",
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -271,6 +300,15 @@ export const PaymentMethodScreen = ({ navigation, route }: PaymentMethodScreenPr
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };

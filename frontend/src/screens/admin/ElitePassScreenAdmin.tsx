@@ -8,7 +8,6 @@ import {
   StatusBar,
   Dimensions,
   ActivityIndicator,
-  Alert,
   TextInput,
   Modal,
 } from "react-native";
@@ -18,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import api, { setAuthToken } from "../../services/api";
 import { useAuthStore } from "../../store/useAuthStore";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -44,6 +44,7 @@ interface ElitePass {
 
 export const ElitePassScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const { token } = useAuthStore();
   const [passes, setPasses] = useState<ElitePass[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,21 +86,19 @@ export const ElitePassScreenAdmin = ({ navigation }: any) => {
   };
 
   const handleSeedPasses = async () => {
-    Alert.alert(
+    showConfirm(
       "Seed Passes",
       "This will create default passes (PRO, ELITE, SUPREME). Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Seed", onPress: async () => {
-          try {
-            await api.post('/elite-pass/admin/seed');
-            Alert.alert("Success", "Default passes created!");
-            fetchPasses();
-          } catch (error) {
-            Alert.alert("Error", "Failed to seed passes");
-          }
-        }}
-      ]
+      async () => {
+        try {
+          await api.post('/elite-pass/admin/seed');
+          showSuccess("Success", "Default passes created!");
+          fetchPasses();
+        } catch (error) {
+          showError("Error", "Failed to seed passes");
+        }
+      },
+      "Seed",
     );
   };
 
@@ -137,7 +136,7 @@ export const ElitePassScreenAdmin = ({ navigation }: any) => {
 
   const handleSave = async () => {
     if (!formData.name || !formData.price || !formData.duration_days) {
-      Alert.alert("Error", "Please fill all required fields");
+      showError("Error", "Please fill all required fields");
       return;
     }
 
@@ -157,37 +156,35 @@ export const ElitePassScreenAdmin = ({ navigation }: any) => {
 
       if (editingPass) {
         await api.put(`/elite-pass/admin/${editingPass._id}`, payload);
-        Alert.alert("Success", "Pass updated!");
+        showSuccess("Success", "Pass updated!");
       } else {
         await api.post('/elite-pass/admin', payload);
-        Alert.alert("Success", "Pass created!");
+        showSuccess("Success", "Pass created!");
       }
 
       setModalVisible(false);
       fetchPasses();
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Failed to save");
+      showError("Error", error.response?.data?.message || "Failed to save");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = (pass: ElitePass) => {
-    Alert.alert(
+    showConfirm(
       "Delete Pass",
       `Are you sure you want to delete ${pass.name}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: async () => {
-          try {
-            await api.delete(`/elite-pass/admin/${pass._id}`);
-            Alert.alert("Success", "Pass deleted!");
-            fetchPasses();
-          } catch (error) {
-            Alert.alert("Error", "Failed to delete pass");
-          }
-        }}
-      ]
+      async () => {
+        try {
+          await api.delete(`/elite-pass/admin/${pass._id}`);
+          showSuccess("Success", "Pass deleted!");
+          fetchPasses();
+        } catch (error) {
+          showError("Error", "Failed to delete pass");
+        }
+      },
+      "Delete",
     );
   };
 
@@ -314,6 +311,7 @@ export const ElitePassScreenAdmin = ({ navigation }: any) => {
       {/* Create/Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingPass ? "EDIT PASS" : "CREATE PASS"}</Text>
@@ -387,6 +385,7 @@ export const ElitePassScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -394,14 +393,14 @@ export const ElitePassScreenAdmin = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0d" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingBottom: 24 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 16 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "white" },
   scrollView: { flex: 1 },
   heroCard: { height: 160, borderRadius: 24, padding: 24, alignItems: "center", justifyContent: "center", gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 },
   heroTitle: { color: "white", fontSize: 22, fontWeight: "900", fontStyle: "italic", letterSpacing: 2, textAlign: "center" },
   heroSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 12, textAlign: "center", lineHeight: 18 },
-  content: { paddingHorizontal: 20 },
+  content: { paddingHorizontal: 16 },
   sectionTitle: { fontSize: 11, fontWeight: "bold", color: "rgba(255,255,255,0.4)", letterSpacing: 1.5, marginTop: 12, marginBottom: 20, marginLeft: 4 },
   actionRow: { flexDirection: "row", gap: 12, marginBottom: 20 },
   addButton: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f47b25", paddingVertical: 14, borderRadius: 12 },
@@ -428,8 +427,8 @@ const styles = StyleSheet.create({
   featureText: { color: "#f47b25", fontSize: 11 },
   bgGlowTop: { position: "absolute", top: "-10%", right: "-20%", width: 300, height: 300, backgroundColor: "rgba(244,123,37,0.15)", borderRadius: 150, opacity: 0.5 },
   bgGlowBottom: { position: "absolute", bottom: "-10%", left: "-20%", width: 300, height: 300, backgroundColor: "rgba(37,99,235,0.1)", borderRadius: 150, opacity: 0.5 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "flex-end" },
-  modalContent: { backgroundColor: "#1a1a1a", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "90%" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  modalContent: { backgroundColor: "#1a1a1a", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, maxHeight: "90%" },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   modalTitle: { color: "white", fontSize: 18, fontWeight: "bold" },
   inputLabel: { color: "rgba(255,255,255,0.6)", fontSize: 11, fontWeight: "bold", letterSpacing: 1, marginBottom: 8, marginTop: 12 },

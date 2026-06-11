@@ -6,7 +6,6 @@ import {
     ScrollView,
     TextInput,
     TouchableOpacity,
-    Alert,
     ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -512,7 +511,7 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 18, fontWeight: "bold", color: COLORS.textLight },
     tierBadge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1 },
     tierBadgeText: { fontSize: 10, fontWeight: "bold", letterSpacing: 0.5 },
-    scrollContent: { padding: SPACING.xl, paddingBottom: 100 },
+    scrollContent: { paddingHorizontal: 16, paddingVertical: SPACING.xl, paddingBottom: 100 },
 
     tierInfoBar: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, backgroundColor: "rgba(255,255,255,0.03)", borderRadius: RADIUS.sm, marginBottom: 20, borderWidth: 1 },
     tierInfoText: { flex: 1, fontSize: 11, color: COLORS.textSecondary, lineHeight: 16 },

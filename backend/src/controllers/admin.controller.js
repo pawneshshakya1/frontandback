@@ -66,4 +66,5 @@ module.exports = {
   createBanner: banner.createBanner,
   updateBanner: banner.updateBanner,
   deleteBanner: banner.deleteBanner,
+  reorderBanner: banner.reorderBanner,
 };

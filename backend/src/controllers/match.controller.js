@@ -200,28 +200,82 @@ const getDailyLimit = async (req, res) => {
     // B4 fix: use req.userId (set by auth middleware) — avoids a
     // round-trip to fetch the full user just to read .role.
     const userId = req.userId;
-    const user = await User.findById(userId).select('role').lean();
+    const user = await User.findById(userId).select('role pass_type pass_expiry pass_event_count pass_events_used').lean();
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    // Admins have unlimited
-    if (user.role === 'ADMIN') {
+    // Admins and Partners have unlimited
+    if (user.role === 'ADMIN' || user.role === 'PARTNER') {
       return res.json({
         success: true,
         data: {
-          pass_type: 'admin',
+          pass_type: user.role.toLowerCase(),
           daily_limit: -1, // unlimited
           today_count: 0,
           remaining: -1,
-          is_unlimited: true
+          is_unlimited: true,
+          total_limit: -1,
+          total_used: 0,
+          total_remaining: -1,
+          limit_type: 'unlimited'
         }
       });
     }
 
-    const passType = await matchService.getEffectivePassType(user._id);
-    const dailyLimit = matchService.DAILY_EVENT_LIMITS[passType] || 1;
+    // Check if user has an active UserPass (Elite Pass)
+    const UserPass = require('../models/user-pass.model');
+    const activePass = await UserPass.findOne({
+      user_id: user._id,
+      status: 'ACTIVE',
+      expires_at: { $gt: new Date() },
+    }).sort({ expires_at: -1 }).lean();
+
+    // Fallback: if no UserPass record but User model has pass_type + pass_expiry
+    // (handles old purchases made before UserPass tracking was added)
+    const hasUserModelPass = user.pass_type
+      && user.pass_type !== 'none'
+      && user.pass_expiry
+      && new Date(user.pass_expiry) > new Date()
+      && user.pass_event_count;
+
+    if (!activePass && !hasUserModelPass) {
+      // No active pass - use default daily limit
+      const dailyLimit = 1; // default for 'none'
+      const todayCount = await matchService.getDailyEventCount(req.user.id);
+      return res.json({
+        success: true,
+        data: {
+          pass_type: 'none',
+          daily_limit: dailyLimit,
+          today_count: todayCount,
+          remaining: Math.max(0, dailyLimit - todayCount),
+          is_unlimited: false,
+          total_limit: null,
+          total_used: 0,
+          total_remaining: null,
+          limit_type: 'daily',
+          pass_expiry: null
+        }
+      });
+    }
+
+    const passType = activePass ? activePass.pass_type : user.pass_type;
+    const limits = await matchService.getPassLimits();
+    const dailyLimit = limits.daily[passType] || 1;
     const todayCount = await matchService.getDailyEventCount(req.user.id);
+
+    // Get total event limit for Elite Pass holders
+    const totalLimitInfo = await matchService.getTotalEventLimit(req.user.id);
+
+    // Determine which limit to use: total for Elite Pass (has passConfig), daily for others
+    const passConfig = limits.passConfig[passType];
+    const isEliteUser = passConfig && (user.pass_event_count || hasUserModelPass);
+    const limitType = isEliteUser ? 'total' : 'daily';
+    
+    const remaining = isEliteUser 
+      ? (totalLimitInfo?.remaining ?? 0)
+      : Math.max(0, dailyLimit - todayCount);
 
     res.json({
       success: true,
@@ -229,8 +283,15 @@ const getDailyLimit = async (req, res) => {
         pass_type: passType,
         daily_limit: dailyLimit,
         today_count: todayCount,
-        remaining: Math.max(0, dailyLimit - todayCount),
-        is_unlimited: false
+        remaining: remaining,
+        is_unlimited: false,
+        // Total event limit info (for Elite Pass holders)
+        total_limit: totalLimitInfo?.total_limit ?? null,
+        total_used: totalLimitInfo?.used ?? 0,
+        total_remaining: totalLimitInfo?.remaining ?? null,
+        limit_type: limitType,
+        pass_expiry: user.pass_expiry || null,
+        pass_name: limits.passConfig[passType]?.name || null,
       }
     });
   } catch (error) {

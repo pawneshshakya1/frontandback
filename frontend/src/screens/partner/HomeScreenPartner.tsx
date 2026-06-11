@@ -152,7 +152,7 @@ export const HomeScreenPartner = ({ navigation }: any) => {
       try {
         const res = await api.get("/banners");
         setBanners(res.data.data || []);
-      } catch (e) {}
+      } catch (e) { }
     };
     const handleMatchUpdate = () => loadInitialData();
     sseService.on("BANNER_UPDATE", handleBannerUpdate);
@@ -170,7 +170,7 @@ export const HomeScreenPartner = ({ navigation }: any) => {
         if (res.data?.success || res.data?.count !== undefined) {
           setUnreadCount(res.data.data?.unreadCount || res.data.count || 0);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     fetchUnread();
     const interval = setInterval(fetchUnread, 30000);
@@ -352,11 +352,11 @@ export const HomeScreenPartner = ({ navigation }: any) => {
                 styles.avatarContainer,
                 currentTier.glow
                   ? {
-                      borderColor: currentTier.color,
-                      shadowColor: currentTier.color,
-                      shadowOpacity: 0.6,
-                      shadowRadius: 8,
-                    }
+                    borderColor: currentTier.color,
+                    shadowColor: currentTier.color,
+                    shadowOpacity: 0.6,
+                    shadowRadius: 8,
+                  }
                   : null,
               ]}
             >
@@ -537,16 +537,33 @@ export const HomeScreenPartner = ({ navigation }: any) => {
         <View style={{ paddingHorizontal: 16, marginTop: 28 }}>
           <GlassCard
             tag="Partner Tier"
-            tagColor={COLORS.primary}
+            tagColor="#fbbf24"
             subtitle={`Current: ${currentTier.name}`}
             title="Upgrade Your Tier"
             description="Get more events, lower commission & sponsor support"
             icon="workspace-premium"
-            iconColor={COLORS.primary}
-            gradient={["rgba(244,123,37,0.25)", "rgba(234,88,12,0.15)"]}
+            iconColor="#fbbf24"
+            gradient={["rgba(251,191,36,0.25)", "rgba(217,119,6,0.15)"]}
             actionLabel="Manage Tier"
-            onAction={() => navigation.navigate("PartnerTier")}
-          />
+            // onAction={() => navigation.navigate("PartnerTier")}
+            onPress={() => navigation.navigate("PartnerTier")}>
+            <View style={styles.passStatRow}>
+              <View style={styles.passStatItem}>
+                <MaterialIcons name="percent" size={12} color="#fbbf24" />
+                <Text style={[styles.passStatText, { color: "#fbbf24" }]}>Commission</Text>
+              </View>
+              <View style={[styles.passStatDivider, { backgroundColor: "rgba(251,191,36,0.2)" }]} />
+              <View style={styles.passStatItem}>
+                <MaterialIcons name="event" size={12} color="#fbbf24" />
+                <Text style={[styles.passStatText, { color: "#fbbf24" }]}>Events/mo</Text>
+              </View>
+              <View style={[styles.passStatDivider, { backgroundColor: "rgba(251,191,36,0.2)" }]} />
+              <View style={styles.passStatItem}>
+                <MaterialIcons name="workspace-premium" size={12} color="#fbbf24" />
+                <Text style={[styles.passStatText, { color: "#fbbf24" }]}>Premium Perks</Text>
+              </View>
+            </View>
+          </GlassCard>
         </View>
 
         {/* Featured Events */}
@@ -997,6 +1014,32 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  passStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.05)",
+  },
+  passStatItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  passStatText: {
+    color: COLORS.primary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  passStatDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "rgba(244,123,37,0.2)",
   },
 });
 

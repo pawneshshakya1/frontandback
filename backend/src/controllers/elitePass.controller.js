@@ -1,14 +1,14 @@
 const ElitePass = require('../models/elitePass.model');
 const User = require('../models/user.model');
+const UserPass = require('../models/user-pass.model');
 const PartnerProfile = require('../models/partner-profile.model');
+const TierHistory = require('../models/tier-history.model');
 const paymentService = require('../services/payment.service');
 const Wallet = require('../models/wallet.model');
 const spendAnalyticsService = require('../services/user-spend-analytics.service');
 const { broadcast } = require('../utils/sse');
-// Q1 fix: import tier config + price from the shared module so the
-// local getTierConfig and hard-coded partner pass prices below stay
-// in sync with the single source of truth.
 const { getTierConfig, getTierPrice } = require('../config/tier.config');
+const matchLifecycleService = require('../services/match-lifecycle.service');
 
 // ============ ADMIN ROUTES ============
 
@@ -91,7 +91,7 @@ const toBenefitObjects = (v) => {
 // of returning 400 "Pass type already exists".
 const createPass = async (req, res) => {
   try {
-    const { pass_type, name, description, price, duration_days, winnings_boost, event_count, features, color, is_popular, benefits, pass_category } = req.body;
+    const { pass_type, name, description, price, duration_days, winnings_boost, event_count, features, color, is_popular, benefits, pass_category, partner_tier, commission_rate, max_events_per_month } = req.body;
 
     if (!pass_type) {
       return res.status(400).json({ success: false, message: 'pass_type is required' });
@@ -118,7 +118,10 @@ const createPass = async (req, res) => {
           color,
           is_popular: is_popular || false,
           benefits: cleanBenefits,
-          pass_category: pass_category || 'user', // 'user' or 'partner'
+          pass_category: pass_category || 'user',
+          partner_tier: pass_category === 'partner' ? (partner_tier || pass_type) : null,
+          commission_rate: pass_category === 'partner' ? (commission_rate || 1) : null,
+          max_events_per_month: pass_category === 'partner' ? (max_events_per_month || 10) : null,
         },
         $setOnInsert: { created_at: new Date() },
       },
@@ -130,6 +133,8 @@ const createPass = async (req, res) => {
       data: pass,
       message: wasUpdate ? 'Pass updated' : 'Pass created',
     });
+
+    matchLifecycleService.invalidatePassLimitsCache();
   } catch (error) {
     console.error('createPass error:', error);
     res.status(500).json({ success: false, message: 'Failed to create pass', detail: error.message });
@@ -148,6 +153,7 @@ const updatePass = async (req, res) => {
     }
 
     res.json({ success: true, data: pass });
+    matchLifecycleService.invalidatePassLimitsCache();
   } catch (error) {
     console.error('updatePass error:', error);
     res.status(500).json({ success: false, message: 'Failed to update pass' });
@@ -165,6 +171,7 @@ const deletePass = async (req, res) => {
     }
 
     res.json({ success: true, message: 'Pass deleted successfully' });
+    matchLifecycleService.invalidatePassLimitsCache();
   } catch (error) {
     console.error('deletePass error:', error);
     res.status(500).json({ success: false, message: 'Failed to delete pass' });
@@ -272,10 +279,11 @@ const initiatePurchase = async (req, res) => {
     );
     console.log('Cashfree order response:', JSON.stringify(orderData));
 
-    // Store order ID in user for later verification
+    // Store order ID and pending pass type in user for later verification
+    // Use pending_pass_type to avoid overwriting the user's active pass_type
     await User.findByIdAndUpdate(userId, {
       pass_order_id: orderData.order_id,
-      pass_type: pass_type, // Temporarily store the requested pass type
+      pending_pass_type: pass_type,
     });
 
     res.json({
@@ -323,8 +331,11 @@ const verifyPurchase = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Payment not completed' });
     }
 
+    // Use pending_pass_type (set during initiatePurchase) instead of user.pass_type
+    const requestedPassType = user.pending_pass_type || user.pass_type;
+
     // Get pass details to calculate expiry
-    const pass = await ElitePass.findOne({ pass_type: user.pass_type });
+    const pass = await ElitePass.findOne({ pass_type: requestedPassType });
     if (!pass) {
       return res.status(404).json({ success: false, message: 'Pass not found' });
     }
@@ -343,23 +354,47 @@ const verifyPurchase = async (req, res) => {
 
     // Update user with active pass
     const updateData = {
-      pass_type: user.pass_type,
+      pass_type: requestedPassType,
       pass_expiry: newExpiryDate,
       pass_activated_at: now,
-      pass_order_id: null, // Clear order ID after successful activation
-      pass_event_count: pass.event_count || null, // total events allowed (user passes only)
-      pass_events_used: 0, // reset on new activation
+      pass_order_id: null,
+      pending_pass_type: null,
+      pass_event_count: pass.event_count ?? null,
+      pass_events_used: 0,
     };
+
+    // ============ CREATE/UPDATE USERPASS RECORD ============
+    // Expire any old active UserPass records for this user
+    await UserPass.updateMany(
+      { user_id: userId, status: 'ACTIVE' },
+      { $set: { status: 'EXPIRED' } }
+    );
+
+    // Create new UserPass record (C1 fix: this was missing entirely)
+    if (pass.pass_category === 'user') {
+      await UserPass.findOneAndUpdate(
+        { user_id: userId, pass_type: requestedPassType },
+        {
+          user_id: userId,
+          pass_type: requestedPassType,
+          status: 'ACTIVE',
+          activated_at: now,
+          expires_at: newExpiryDate,
+          order_id: order_id,
+          daily_events_used: 0,
+          last_daily_reset: now,
+        },
+        { upsert: true, new: true }
+      );
+    }
 
     // ============ PARTNER PASS AUTO-ACTIVATION ============
     let partnerActivated = false;
     let partnerTier = null;
 
     if (pass.pass_category === 'partner') {
-      // This is a partner pass - auto-activate partner role
       partnerTier = pass.partner_tier || 'standard';
 
-      // Upgrade user role to PARTNER if not already
       if (user.role !== 'PARTNER' && user.role !== 'ADMIN') {
         updateData.role = 'PARTNER';
         updateData.is_verified = true;
@@ -367,7 +402,7 @@ const verifyPurchase = async (req, res) => {
         partnerActivated = true;
       }
 
-      // Create or update partner profile with tier
+      // Use ElitePass custom fields if available, fallback to tier.config.js
       const tierConfig = getTierConfig(partnerTier);
 
       await PartnerProfile.findOneAndUpdate(
@@ -376,7 +411,7 @@ const verifyPurchase = async (req, res) => {
           $set: {
             partner_tier: partnerTier,
             tier_label: tierConfig.label,
-            commission_rate: tierConfig.commission_rate,
+            commission_rate: pass.commission_rate ?? tierConfig.commission_rate,
             tier_upgraded_at: now,
             tier_expiry: newExpiryDate,
             tier_pass_order_id: order_id,
@@ -394,6 +429,17 @@ const verifyPurchase = async (req, res) => {
         },
         { upsert: true, new: true }
       );
+
+      // H2 fix: Create TierHistory record for partner pass activation
+      await TierHistory.create({
+        user_id: userId,
+        partner_tier: tierConfig.tier || partnerTier,
+        action: user.role === 'PARTNER' ? 'UPGRADE' : 'ACTIVATED',
+        amount: pass.price,
+        label: `${pass.name} activated`,
+        previous_tier: user.role === 'PARTNER' ? (await PartnerProfile.findOne({ user_id: userId }))?.partner_tier : null,
+        order_id: order_id,
+      });
 
       console.log(`Partner pass activated: User ${userId} is now ${partnerTier} partner`);
     }
@@ -417,7 +463,7 @@ const verifyPurchase = async (req, res) => {
         ? `Pass activated! You are now a ${partnerTier} partner!`
         : 'Pass activated successfully',
       data: {
-        pass_type: user.pass_type,
+        pass_type: requestedPassType,
         pass_expiry: newExpiryDate,
         pass_activated_at: now,
         duration_days: pass.duration_days,
@@ -433,14 +479,14 @@ const verifyPurchase = async (req, res) => {
   }
 };
 
-// User: Cancel purchase (clear order ID)
+// User: Cancel purchase (clear order ID only — do NOT touch active pass)
 const cancelPurchase = async (req, res) => {
   try {
     const userId = req.user._id;
 
     await User.findByIdAndUpdate(userId, {
       pass_order_id: null,
-      pass_type: 'none'
+      pending_pass_type: null,
     });
 
     res.json({ success: true, message: 'Purchase cancelled' });
@@ -547,7 +593,7 @@ const seedDefaultPasses = async (req, res) => {
 
       // ============ PARTNER PASSES ============
       {
-        pass_type: 'standard_partner',
+        pass_type: 'standard',
         name: 'Standard Partner',
         description: 'Start your journey as a tournament organizer. Host up to 10 events/month.',
         price: getTierPrice('standard'),
@@ -567,6 +613,8 @@ const seedDefaultPasses = async (req, res) => {
         is_popular: false,
         pass_category: 'partner',
         partner_tier: 'standard',
+        commission_rate: 1,
+        max_events_per_month: 10,
         benefits: [
           { title: '1% Commission', description: 'Only 1% admin commission on events', icon: 'percent' },
           { title: '10 Events/Month', description: 'Host up to 10 tournaments monthly', icon: 'event' },
@@ -575,7 +623,7 @@ const seedDefaultPasses = async (req, res) => {
         ]
       },
       {
-        pass_type: 'sponsored_partner',
+        pass_type: 'sponsored',
         name: 'Sponsored Partner',
         description: 'Level up with sponsored events. Host up to 30 events/month with sponsor support.',
         price: getTierPrice('sponsored'),
@@ -597,6 +645,8 @@ const seedDefaultPasses = async (req, res) => {
         is_popular: true,
         pass_category: 'partner',
         partner_tier: 'sponsored',
+        commission_rate: 3,
+        max_events_per_month: 30,
         benefits: [
           { title: '3% Commission', description: 'Reduced 3% admin commission', icon: 'percent' },
           { title: '30 Events/Month', description: 'Host up to 30 tournaments monthly', icon: 'event' },
@@ -606,7 +656,7 @@ const seedDefaultPasses = async (req, res) => {
         ]
       },
       {
-        pass_type: 'premium_partner',
+        pass_type: 'premium',
         name: 'Premium Partner',
         description: 'The ultimate partner experience. Unlimited events, premium perks, and maximum earnings.',
         price: getTierPrice('premium'),
@@ -629,6 +679,8 @@ const seedDefaultPasses = async (req, res) => {
         is_popular: false,
         pass_category: 'partner',
         partner_tier: 'premium',
+        commission_rate: 5,
+        max_events_per_month: 999,
         benefits: [
           { title: '5% Commission', description: 'Standard 5% admin commission', icon: 'percent' },
           { title: 'Unlimited Events', description: 'No limit on monthly events', icon: 'event' },

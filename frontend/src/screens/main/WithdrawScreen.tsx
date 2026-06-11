@@ -8,7 +8,6 @@ import {
   StatusBar,
   TextInput,
   Dimensions,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Slider from '@react-native-community/slider';
@@ -16,6 +15,7 @@ import Slider from '@react-native-community/slider';
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useWalletStore } from "../../store/useWalletStore";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -28,6 +28,18 @@ export const WithdrawScreen = ({ navigation }: any) => {
   const [accountNumber, setAccountNumber] = useState("");
   const [ifscCode, setIfscCode] = useState("");
   const [lastSource, setLastSource] = useState<any>(null);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: "success" | "error" | "warning" | "info" | "confirm";
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const {
     withdrawableBalance,
@@ -77,30 +89,55 @@ export const WithdrawScreen = ({ navigation }: any) => {
 
   const handleConfirm = async () => {
     if (amount <= 0) {
-      Alert.alert("Invalid Amount", "Please select a valid amount to withdraw.");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Invalid Amount",
+        message: "Please select a valid amount to withdraw.",
+      });
       return;
     }
     if (amount > maxWithdrawable) {
-      Alert.alert("Insufficient Balance", `You can only withdraw up to ₹${maxWithdrawable.toLocaleString()}.`);
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Insufficient Balance",
+        message: `You can only withdraw up to ₹${maxWithdrawable.toLocaleString()}.`,
+      });
       return;
     }
 
     let details = {};
     if (method === "UPI") {
       if (!upiId.trim()) {
-        Alert.alert("UPI ID Required", "Please enter a valid UPI ID.");
+        setPopup({
+          visible: true,
+          type: "warning",
+          title: "UPI ID Required",
+          message: "Please enter a valid UPI ID.",
+        });
         return;
       }
       details = { upiId };
     } else if (method === "BANK") {
       if (!accountName.trim() || !accountNumber.trim() || !ifscCode.trim()) {
-        Alert.alert("Incomplete Details", "Please fill in all bank details.");
+        setPopup({
+          visible: true,
+          type: "warning",
+          title: "Incomplete Details",
+          message: "Please fill in all bank details.",
+        });
         return;
       }
       details = { accountName, accountNumber, ifscCode };
     } else if (method === "SOURCE") {
       if (!lastSource) {
-        Alert.alert("Error", "No source account found.");
+        setPopup({
+          visible: true,
+          type: "error",
+          title: "Error",
+          message: "No source account found.",
+        });
         return;
       }
       details = { source: lastSource };
@@ -108,10 +145,25 @@ export const WithdrawScreen = ({ navigation }: any) => {
 
     try {
       await withdraw(amount, method, details);
-      Alert.alert("Success", "Withdrawal initiated successfully!");
-      navigation.goBack();
+      setPopup({
+        visible: true,
+        type: "success",
+        title: "Success",
+        message: "Withdrawal initiated successfully!",
+        buttons: [
+          {
+            text: "OK",
+            onPress: () => navigation.goBack(),
+          }
+        ]
+      });
     } catch (err: any) {
-      Alert.alert("Withdrawal Failed", err.message);
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Withdrawal Failed",
+        message: err.message,
+      });
     }
   };
 
@@ -146,7 +198,12 @@ export const WithdrawScreen = ({ navigation }: any) => {
           <MaterialIcons name="arrow-back-ios" size={18} color="white" style={{ marginLeft: 6 }} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Withdraw</Text>
-        <TouchableOpacity style={styles.helpButton} onPress={() => Alert.alert('Help', 'Contact support at support@battlecore.gg for withdrawal assistance.')}>
+        <TouchableOpacity style={styles.helpButton} onPress={() => setPopup({
+          visible: true,
+          type: "info",
+          title: "Help",
+          message: "Contact support at support@battlecore.gg for withdrawal assistance.",
+        })}>
           <MaterialIcons name="help-outline" size={24} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
@@ -336,6 +393,15 @@ export const WithdrawScreen = ({ navigation }: any) => {
           <MaterialIcons name={loading ? "hourglass-empty" : "arrow-forward"} size={20} color="white" />
         </TouchableOpacity>
       </View>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };

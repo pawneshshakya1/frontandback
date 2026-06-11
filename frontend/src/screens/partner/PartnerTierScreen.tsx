@@ -513,13 +513,38 @@ export const PartnerTierScreen = ({ navigation }: any) => {
         )}
 
         {/* ============ UPGRADE TAB ============ */}
-        {activeTab === "upgrade" && (
-          <PartnerUpgrade
-            currentTier={currentTier}
-            handleUpgradeTier={handleUpgradeTier}
-            upgrading={upgrading}
-          />
-        )}
+        {activeTab === "upgrade" && (() => {
+          // Convert all_tiers object { STANDARD: {...}, SPONSORED: {...}, PREMIUM: {...} }
+          // to array format [{ key: "standard", ... }, ...] for PartnerUpgrade
+          const tiersObj = tierInfo?.all_tiers;
+          const tiersArray = tiersObj
+            ? Object.entries(tiersObj).map(([key, config]: [string, any]) => ({
+                key: key.toLowerCase(),
+                name: config.label || key.charAt(0) + key.slice(1).toLowerCase(),
+                price: config.price || 0,
+                commission: `${config.commission_rate || 1}%`,
+                events: config.max_events_per_month === -1 ? "Unlimited" : `${config.max_events_per_month}/mo`,
+                entryFee: `₹${config.max_entry_fee || 0}`,
+                prizePool: `₹${(config.max_prize_pool || 0).toLocaleString()}`,
+                color: key === "STANDARD" ? "#94a3b8" : key === "SPONSORED" ? "#3b82f6" : "#fbbf24",
+                icon: key === "STANDARD" ? "shield" : key === "SPONSORED" ? "campaign" : "workspace-premium",
+                features: [
+                  `${config.commission_rate || 1}% Platform Fee`,
+                  config.max_events_per_month === -1 ? "Unlimited Events" : `${config.max_events_per_month} Events/Month`,
+                  `${config.max_entry_fee || 0} Entry Fee`,
+                  "Partner Badge",
+                ],
+              }))
+            : undefined;
+          return (
+            <PartnerUpgrade
+              currentTier={currentTier}
+              handleUpgradeTier={handleUpgradeTier}
+              upgrading={upgrading}
+              tiers={tiersArray}
+            />
+          );
+        })()}
 
         {/* ============ HISTORY TAB ============ */}
         {activeTab === "history" && (

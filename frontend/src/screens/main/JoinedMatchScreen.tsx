@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
         right: 0,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingBottom: 20,
         zIndex: 100,
         borderBottomWidth: 1,
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     },
     filterContainer: {
         flexDirection: 'row',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginBottom: 10,
         gap: 10,
     },
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
         color: 'white',
     },
     listContent: {
-        padding: 20,
-        paddingTop: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         paddingBottom: 100,
     },
     matchCard: {
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     },
     browseBtn: {
         backgroundColor: 'rgba(255,255,255,0.1)',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 8,
     },

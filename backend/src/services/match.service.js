@@ -42,7 +42,8 @@ module.exports = {
   generateInviteCode: lifecycle.generateInviteCode,
   getEffectivePassType: lifecycle.getEffectivePassType,
   getDailyEventCount: lifecycle.getDailyEventCount,
-  DAILY_EVENT_LIMITS: lifecycle.DAILY_EVENT_LIMITS,
+  getTotalEventLimit: lifecycle.getTotalEventLimit,
+  getPassLimits: lifecycle.getPassLimits,
 
   // payment
   joinMatch: payment.joinMatch,

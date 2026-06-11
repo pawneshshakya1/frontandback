@@ -1,6 +1,7 @@
 require("dotenv").config();
 const app = require("./src/app");
 const connectDB = require("./src/config/db");
+const { connectRedis } = require("./src/config/redis");
 
 const PORT = process.env.PORT || 5000;
 
@@ -18,6 +19,12 @@ const startServer = async () => {
   } catch (err) {
     console.error('CRITICAL: Failed to connect to MongoDB:', err.message);
     process.exit(1);
+  }
+
+  try {
+    await connectRedis();
+  } catch (err) {
+    console.error('WARNING: Failed to connect to Redis:', err.message);
   }
 
   const server = app.listen(PORT, () => {

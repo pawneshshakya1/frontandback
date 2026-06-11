@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
   StatusBar,
@@ -19,6 +18,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { COLORS } from '../../theme/colors';
 import api from '../../services/api';
+import { usePopup } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +35,7 @@ interface Achievement {
 
 export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -112,14 +113,14 @@ export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
 
   const handleCreate = async () => {
     if (!newAchievement.title.trim()) {
-      Alert.alert('Error', 'Title is required');
+      showError('Error', 'Title is required');
       return;
     }
 
     try {
       // Try API first
       await api.post('/admin/achievements', newAchievement);
-      Alert.alert('Success', 'Achievement created');
+      showSuccess('Success', 'Achievement created');
     } catch (e) {
       // Add locally if API not available
       const achievement: Achievement = {
@@ -139,7 +140,7 @@ export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
 
     try {
       await api.put(`/admin/achievements/${selectedAchievement._id}`, selectedAchievement);
-      Alert.alert('Success', 'Achievement updated');
+      showSuccess('Success', 'Achievement updated');
     } catch (e) {
       // Update locally
       setAchievements(prev => prev.map(a => a._id === selectedAchievement._id ? selectedAchievement : a));
@@ -150,21 +151,14 @@ export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
   };
 
   const handleDelete = async (id: string) => {
-    Alert.alert('Delete Achievement', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/admin/achievements/${id}`);
-          } catch (e) {
-            // Delete locally
-          }
-          setAchievements(prev => prev.filter(a => a._id !== id));
-        },
-      },
-    ]);
+    showConfirm('Delete Achievement', 'Are you sure?', async () => {
+      try {
+        await api.delete(`/admin/achievements/${id}`);
+      } catch (e) {
+        // Delete locally
+      }
+      setAchievements(prev => prev.filter(a => a._id !== id));
+    }, 'Delete');
   };
 
   const toggleActive = async (achievement: Achievement) => {
@@ -270,6 +264,7 @@ export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
   const renderCreateModal = () => (
     <Modal visible={createModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Create Achievement</Text>
@@ -329,6 +324,7 @@ export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
   const renderEditModal = () => (
     <Modal visible={editModal} transparent animationType="fade">
       <View style={styles.modalOverlay}>
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Edit Achievement</Text>
@@ -443,6 +439,7 @@ export const AchievementsManagementScreenAdmin = ({ navigation }: any) => {
 
       {renderCreateModal()}
       {renderEditModal()}
+      <PopupElement />
     </View>
   );
 };
@@ -488,7 +485,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 16, color: 'rgba(255,255,255,0.3)', marginTop: 12 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: 'white' },

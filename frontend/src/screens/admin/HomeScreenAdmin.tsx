@@ -5,10 +5,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Dimensions,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -27,11 +27,15 @@ import { StatCard } from "../../components/StatCard";
 import { GlassCard } from "../../components/GlassCard";
 import PieChart from "react-native-pie-chart";
 import { RoleBadge } from "../../components/RoleBadge";
+import { usePopup } from "../../components/PopupModal";
+import { useAuth } from "../../context/AuthContext";
 
 const { width } = Dimensions.get("window");
 
 export const HomeScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { authData } = useAuth();
+  const { showInfo, PopupElement } = usePopup();
   const [activeTab, setActiveTab] = useState<
     "REVENUE" | "USER GROWTH" | "PARTICIPATION"
   >("REVENUE");
@@ -272,22 +276,49 @@ export const HomeScreenAdmin = ({ navigation }: any) => {
         }
       >
         {/* Header */}
-        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-          <View>
-            <RoleBadge role="ADMIN" label="Admin · Command Center" />
-            <Text style={styles.headerTitle}>Admin Dashboard</Text>
-            <Text style={styles.headerSubtitle}>
-              {liveActiveUsers} live · {totalUsers.toLocaleString()} total users
-            </Text>
-          </View>
+        <View style={[styles.header, { paddingTop: insets.top + 4, paddingBottom: 16 }]}>
+          <TouchableOpacity
+            style={styles.headerLeft}
+            onPress={() => navigation.navigate("ProfileAdmin")}
+            activeOpacity={0.7}
+          >
+            <View style={styles.avatarContainer}>
+              {authData?.user?.avatar_url ? (
+                <Image
+                  source={{ uri: authData.user.avatar_url }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <LinearGradient
+                  colors={[COLORS.primary, "#ea580c"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.avatarFallback}
+                >
+                  <Text style={styles.avatarInitials}>
+                    {(authData?.user?.username || authData?.user?.email || "A")[0]?.toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
+              <View style={styles.avatarRing} />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.usernameText} numberOfLines={1}>
+                {authData?.user?.username || "Admin"}
+              </Text>
+              <View style={styles.headerBadgeRow}>
+                <RoleBadge role="ADMIN" label="Admin · Command Center" />
+              </View>
+            </View>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.profileIcon}
             onPress={() => navigation.navigate("NotificationsAdmin")}
           >
             <MaterialIcons
-              name="admin-panel-settings"
+              name="notifications"
               size={22}
-              color="#ef4444"
+              color={COLORS.textLight}
             />
             {liveActiveUsers > 0 && (
               <View style={styles.liveDot}>
@@ -414,8 +445,8 @@ export const HomeScreenAdmin = ({ navigation }: any) => {
                   >
                     {day.length > 3
                       ? new Date(day)
-                          .toLocaleDateString("en-US", { weekday: "short" })
-                          .toUpperCase()
+                        .toLocaleDateString("en-US", { weekday: "short" })
+                        .toUpperCase()
                       : day}
                   </Text>
                 </View>
@@ -490,7 +521,7 @@ export const HomeScreenAdmin = ({ navigation }: any) => {
             tag="Partner Tier"
             tagColor="#fbbf24"
             subtitle="Recurring partner membership"
-            title="Create Become a Partner"
+            title="Create Partner Pass"
             description="Standard / Sponsored / Premium — commission rate, events/month, sponsor slots, analytics access."
             icon="handshake"
             iconColor="#fbbf24"
@@ -693,7 +724,7 @@ export const HomeScreenAdmin = ({ navigation }: any) => {
                   variant={p.status === "APPROVED" ? "success" : "warning"}
                   showChevron
                   onPress={() =>
-                    Alert.alert(
+                    showInfo(
                       "Approve Payout",
                       `Approve payout of ₹${Number(p.amount || 0).toLocaleString()} for ${name}?`,
                     )
@@ -714,6 +745,7 @@ export const HomeScreenAdmin = ({ navigation }: any) => {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+      <PopupElement />
     </SafeScreen>
   );
 };
@@ -759,20 +791,73 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    marginBottom: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "900",
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+  },
+  avatarContainer: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.surface,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.12)",
+    overflow: "visible",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
+    position: "relative",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 21,
+    overflow: "hidden",
+  },
+  avatarFallback: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: {
     color: "white",
-    marginTop: 8,
+    fontSize: 19,
+    fontWeight: "900",
+    fontStyle: "italic",
     letterSpacing: -0.5,
   },
-  headerSubtitle: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 2,
-    fontWeight: "600",
+  avatarRing: {
+    position: "absolute",
+    top: -3,
+    left: -3,
+    right: -3,
+    bottom: -3,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  usernameText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: -0.3,
+  },
+  headerBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 4,
   },
   profileIcon: {
     width: 44,

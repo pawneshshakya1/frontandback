@@ -8,7 +8,6 @@ import {
   StatusBar,
   TextInput,
   Dimensions,
-  Alert,
   Modal,
   ActivityIndicator
 } from "react-native";
@@ -17,6 +16,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { WebView } from 'react-native-webview';
 import { BlurView } from "expo-blur";
 import api from "../../services/api";
+import { usePopup } from "../../components/PopupModal";
 
 const { width, height } = Dimensions.get("window");
 
@@ -28,6 +28,7 @@ export const AddCashScreenAdmin = ({ navigation }: any) => {
   const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const { showError, showSuccess, PopupElement } = usePopup();
 
   const COLORS = {
     primary: "#f47b25",
@@ -58,7 +59,7 @@ export const AddCashScreenAdmin = ({ navigation }: any) => {
 
   const handleProceed = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount to add.");
+      showError("Invalid Amount", "Please enter a valid amount to add.");
       return;
     }
 
@@ -71,10 +72,10 @@ export const AddCashScreenAdmin = ({ navigation }: any) => {
         setCurrentOrderId(res.data.data.order_id);
         setShowPaymentModal(true);
       } else {
-        Alert.alert("Error", "Failed to initiate payment session");
+        showError("Error", "Failed to initiate payment session");
       }
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Failed to initiate payment");
+      showError("Error", error.response?.data?.message || "Failed to initiate payment");
     } finally {
       setLoading(false);
     }
@@ -95,14 +96,13 @@ export const AddCashScreenAdmin = ({ navigation }: any) => {
       const res = await api.post('/wallet/add-cash/verify', { orderId: currentOrderId });
       if (res.data.success) {
         setWallet(res.data.data); // Update wallet with new balance
-        Alert.alert('Success', `Successfully added ₹${amount} to your wallet!`, [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+        showSuccess('Success', `Successfully added ₹${amount} to your wallet!`);
+        setTimeout(() => navigation.goBack(), 1500);
       } else {
-        Alert.alert('Payment Failed', 'Transaction could not be verified.');
+        showError('Payment Failed', 'Transaction could not be verified.');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Verification failed');
+      showError('Error', error.response?.data?.message || 'Verification failed');
     } finally {
       setLoading(false);
       setPaymentSessionId(null);
@@ -296,6 +296,7 @@ export const AddCashScreenAdmin = ({ navigation }: any) => {
         </View>
       </Modal>
 
+      <PopupElement />
     </View>
   );
 };

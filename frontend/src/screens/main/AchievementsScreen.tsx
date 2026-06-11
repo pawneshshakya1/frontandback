@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS } from '../../theme/colors';
 import { achievementsAPI } from '../../services/api';
+import { PopupModal } from '../../components/PopupModal';
 
 export const AchievementsScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -21,6 +21,18 @@ export const AchievementsScreen = ({ navigation }: any) => {
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const fetchData = useCallback(async (pageNum = 1) => {
     try {
@@ -35,7 +47,12 @@ export const AchievementsScreen = ({ navigation }: any) => {
         setHasMore(pageNum < res.data.data.pages);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to load data');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to load data',
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -112,6 +129,15 @@ export const AchievementsScreen = ({ navigation }: any) => {
             <Text style={styles.emptyText}>No items yet</Text>
           </View>
         }
+      />
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
       />
     </View>
   );

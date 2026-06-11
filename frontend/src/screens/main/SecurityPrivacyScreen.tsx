@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
   Modal,
   TextInput,
   Dimensions,
@@ -14,6 +13,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -21,6 +21,18 @@ export const SecurityPrivacyScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const COLORS = {
     primary: "#f47b25",
@@ -62,7 +74,7 @@ export const SecurityPrivacyScreen = ({ navigation }: any) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
       >
         <Text style={styles.sectionTitle}>ACCOUNT PROTECTION</Text>
         <View style={styles.card}>
@@ -140,7 +152,7 @@ export const SecurityPrivacyScreen = ({ navigation }: any) => {
         onRequestClose={() => setShowDeleteModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <View style={styles.warningIconContainer}>
               <MaterialIcons name="warning" size={40} color={COLORS.danger} />
@@ -171,9 +183,22 @@ export const SecurityPrivacyScreen = ({ navigation }: any) => {
                 ]}
                 disabled={deleteConfirmation !== "DELETE"}
                 onPress={() => {
-                  Alert.alert("Account Deleted", "Your account has been permanently removed.");
                   setShowDeleteModal(false);
-                  navigation.navigate("Login");
+                  setPopup({
+                    visible: true,
+                    type: 'success',
+                    title: 'Account Deleted',
+                    message: 'Your account has been permanently removed.',
+                    buttons: [
+                      {
+                        text: 'OK',
+                        onPress: () => {
+                          setPopup(prev => ({ ...prev, visible: false }));
+                          navigation.navigate("Login");
+                        }
+                      }
+                    ]
+                  });
                 }}
               >
                 <Text style={styles.deleteButtonText}>PERMANENTLY DELETE</Text>
@@ -192,6 +217,15 @@ export const SecurityPrivacyScreen = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -204,7 +238,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -304,10 +338,9 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    paddingHorizontal: 16,
   },
   modalContent: {
     width: "100%",

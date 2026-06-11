@@ -7,21 +7,22 @@ import {
   StatusBar,
   ScrollView,
   Platform,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { authAPI } from "../../services/api";
+import { usePopup } from "../../components/PopupModal";
 
 export const LoginActivityScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, PopupElement } = usePopup();
 
   const handleLogout = async () => {
     try {
       await authAPI.logout();
       navigation.navigate("Login");
     } catch (e) {
-      Alert.alert("Error", "Failed to logout");
+      showError("Error", "Failed to logout");
     }
   };
 
@@ -123,6 +124,7 @@ export const LoginActivityScreenAdmin = ({ navigation }: any) => {
           <Text style={styles.logoutAllText}>LOG OUT OF ALL OTHER SESSIONS</Text>
         </TouchableOpacity>
       </ScrollView>
+      <PopupElement />
     </View>
   );
 };
@@ -135,7 +137,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     marginRight: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 40,
   },
   sectionTitle: {

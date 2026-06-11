@@ -11,7 +11,6 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Switch,
 } from "react-native";
@@ -23,6 +22,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import api from "../../services/api";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -760,29 +760,41 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
     longitude: number;
   } | null>(null);
   const [useLocation, setUseLocation] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: "success" | "error" | "warning" | "info" | "confirm";
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
-  // Daily limit state
-  const [dailyLimit, setDailyLimit] = useState<any>(null);
+  // Limit state (daily for regular users, total for Elite Pass holders)
+  const [limitInfo, setLimitInfo] = useState<any>(null);
   const [limitLoading, setLimitLoading] = useState(true);
 
   const initialData = route?.params?.initialData;
   const isEditMode = !!initialData;
 
-  // Fetch daily limit on mount
+  // Fetch limit info on mount
   useEffect(() => {
-    const fetchDailyLimit = async () => {
+    const fetchLimitInfo = async () => {
       try {
         const res = await api.get("/matches/daily-limit");
         if (res.data.success) {
-          setDailyLimit(res.data.data);
+          setLimitInfo(res.data.data);
         }
       } catch (e) {
-        console.error("Failed to fetch daily limit:", e);
+        console.error("Failed to fetch limit info:", e);
       } finally {
         setLimitLoading(false);
       }
     };
-    fetchDailyLimit();
+    fetchLimitInfo();
   }, []);
 
   useEffect(() => {
@@ -819,10 +831,12 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
     if (value) {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        Alert.alert(
-          "Permission denied",
-          "We need location permissions to attach your location to the event.",
-        );
+        setPopup({
+          visible: true,
+          type: "error",
+          title: "Permission denied",
+          message: "We need location permissions to attach your location to the event.",
+        });
         setUseLocation(false);
         return;
       }
@@ -955,23 +969,40 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
 
   const handleSave = async ({ publish }: { publish: boolean }) => {
     if (!title.trim()) {
-      Alert.alert("Validation Error", "Please enter a match title.");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Validation Error",
+        message: "Please enter a match title.",
+      });
       return;
     }
     if (!matchDate) {
-      Alert.alert("Validation Error", "Please select a match date.");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Validation Error",
+        message: "Please select a match date.",
+      });
       return;
     }
     const fee = parseFloat(entryFee) || 0;
     if (fee < 0) {
-      Alert.alert("Validation Error", "Entry fee cannot be negative.");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Validation Error",
+        message: "Entry fee cannot be negative.",
+      });
       return;
     }
     if (publish && !matchTime) {
-      Alert.alert(
-        "Validation Error",
-        "Please select a match time before publishing.",
-      );
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Validation Error",
+        message: "Please select a match time before publishing.",
+      });
       return;
     }
 
@@ -1023,40 +1054,57 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
       }
 
       if (response.data.success) {
-        Alert.alert(
-          publish ? "Published!" : "Saved",
-          publish
+        setPopup({
+          visible: true,
+          type: "success",
+          title: publish ? "Published!" : "Saved",
+          message: publish
             ? "Your event is now live and players can join."
             : isEditMode
               ? "Draft updated successfully."
               : "Event saved as draft. You can publish it from My Events.",
-        );
-        navigation.goBack();
+          buttons: [
+            {
+              text: "OK",
+              onPress: () => {
+                setPopup(p => ({ ...p, visible: false }));
+                navigation.goBack();
+              }
+            }
+          ]
+        });
       }
     } catch (error: any) {
       console.error("Match save error:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || "Failed to save match",
-      );
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Error",
+        message: error.response?.data?.message || "Failed to save match",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    Alert.alert(
-      "Discard Changes?",
-      "Are you sure you want to cancel? All progress will be lost.",
-      [
-        { text: "Keep Editing", style: "cancel" },
+    setPopup({
+      visible: true,
+      type: "confirm",
+      title: "Discard Changes?",
+      message: "Are you sure you want to cancel? All progress will be lost.",
+      buttons: [
+        { text: "Keep Editing", style: "cancel", onPress: () => setPopup(p => ({ ...p, visible: false })) },
         {
           text: "Discard",
           style: "destructive",
-          onPress: () => navigation.goBack(),
+          onPress: () => {
+            setPopup(p => ({ ...p, visible: false }));
+            navigation.goBack();
+          },
         },
       ],
-    );
+    });
   };
 
   const handleBack = () => {
@@ -1115,8 +1163,8 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
 
         {renderProgress()}
 
-        {/* Daily Limit Info Banner */}
-        {!limitLoading && dailyLimit && !dailyLimit.is_unlimited && (
+        {/* Limit Info Banner (Daily for regular users, Total for Elite Pass holders) */}
+        {!limitLoading && limitInfo && !limitInfo.is_unlimited && (
           <View
             style={{
               marginHorizontal: 16,
@@ -1124,12 +1172,12 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
               padding: 12,
               borderRadius: 12,
               backgroundColor:
-                dailyLimit.remaining > 0
+                limitInfo.remaining > 0
                   ? "rgba(244,123,37,0.08)"
                   : "rgba(239,68,68,0.1)",
               borderWidth: 1,
               borderColor:
-                dailyLimit.remaining > 0
+                limitInfo.remaining > 0
                   ? "rgba(244,123,37,0.2)"
                   : "rgba(239,68,68,0.2)",
               flexDirection: "row",
@@ -1138,17 +1186,21 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
             }}
           >
             <MaterialIcons
-              name={dailyLimit.remaining > 0 ? "event-available" : "event-busy"}
+              name={limitInfo.remaining > 0 ? "event-available" : "event-busy"}
               size={20}
-              color={dailyLimit.remaining > 0 ? COLORS.primary : "#ef4444"}
+              color={limitInfo.remaining > 0 ? COLORS.primary : "#ef4444"}
             />
             <View style={{ flex: 1 }}>
               <Text
                 style={{ color: "white", fontSize: 12, fontWeight: "bold" }}
               >
-                {dailyLimit.remaining > 0
-                  ? `${dailyLimit.remaining} of ${dailyLimit.daily_limit} events remaining today`
-                  : "Daily event limit reached!"}
+                {limitInfo.limit_type === "total"
+                  ? limitInfo.remaining > 0
+                    ? `${limitInfo.remaining} of ${limitInfo.total_limit} events remaining`
+                    : "Event limit reached!"
+                  : limitInfo.remaining > 0
+                    ? `${limitInfo.remaining} of ${limitInfo.daily_limit} events remaining today`
+                    : "Daily event limit reached!"}
               </Text>
               <Text
                 style={{
@@ -1157,12 +1209,14 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
                   marginTop: 2,
                 }}
               >
-                {dailyLimit.pass_type === "none"
-                  ? "Upgrade to Elite Pass for more daily events"
-                  : `${dailyLimit.pass_type.charAt(0).toUpperCase() + dailyLimit.pass_type.slice(1)} Pass • ${dailyLimit.daily_limit} events/day`}
+                {limitInfo.limit_type === "total"
+                  ? `${limitInfo.pass_name || (limitInfo.pass_type?.charAt(0).toUpperCase() + limitInfo.pass_type?.slice(1))} Pass • ${limitInfo.total_limit} total events`
+                  : limitInfo.pass_type === "none"
+                    ? "Upgrade to Elite Pass for more daily events"
+                    : `${limitInfo.pass_name || limitInfo.pass_type?.charAt(0).toUpperCase() + limitInfo.pass_type?.slice(1)} Pass • ${limitInfo.daily_limit} events/day`}
               </Text>
             </View>
-            {dailyLimit.remaining <= 0 && (
+            {limitInfo.remaining <= 0 && (
               <TouchableOpacity
                 style={{
                   backgroundColor: COLORS.primary,
@@ -1175,7 +1229,7 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
                 <Text
                   style={{ color: "white", fontSize: 10, fontWeight: "bold" }}
                 >
-                  UPGRADE
+                  {limitInfo.pass_type !== "none" ? "VIEW PASS" : "UPGRADE"}
                 </Text>
               </TouchableOpacity>
             )}
@@ -1321,25 +1375,25 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
                 { flex: 1.6, marginLeft: 8 },
                 (loading ||
                   (!isEditMode &&
-                    dailyLimit &&
-                    !dailyLimit.is_unlimited &&
-                    dailyLimit.remaining <= 0)) && { opacity: 0.5 },
+                    limitInfo &&
+                    !limitInfo.is_unlimited &&
+                    limitInfo.remaining <= 0)) && { opacity: 0.5 },
               ]}
               onPress={() => handleSave({ publish: true })}
               disabled={
                 loading ||
                 (!isEditMode &&
-                  dailyLimit &&
-                  !dailyLimit.is_unlimited &&
-                  dailyLimit.remaining <= 0)
+                  limitInfo &&
+                  !limitInfo.is_unlimited &&
+                  limitInfo.remaining <= 0)
               }
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : !isEditMode &&
-                dailyLimit &&
-                !dailyLimit.is_unlimited &&
-                dailyLimit.remaining <= 0 ? (
+                limitInfo &&
+                !limitInfo.is_unlimited &&
+                limitInfo.remaining <= 0 ? (
                 <>
                   <Text style={styles.mainButtonText}>LIMIT</Text>
                   <MaterialIcons name="lock" size={16} color="white" />
@@ -1386,6 +1440,15 @@ export const CreateMatchScreen = ({ navigation, route }: any) => {
         themeVariant="dark"
         accentColor={COLORS.primary}
       />
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -1419,7 +1482,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 20,
     zIndex: 10,
@@ -1497,7 +1560,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   progressContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     marginBottom: 32,
     zIndex: 10,
   },
@@ -1537,7 +1600,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     gap: 32,
   },
   inputGroup: {
@@ -1622,10 +1685,10 @@ const styles = StyleSheet.create({
     color: "white",
   },
   playerCountWrapper: {
-    marginHorizontal: -24,
+    marginHorizontal: -16,
   },
   playerCountScroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     gap: 12,
   },
   countChip: {
@@ -1892,7 +1955,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 16,
   },
   mainButton: {

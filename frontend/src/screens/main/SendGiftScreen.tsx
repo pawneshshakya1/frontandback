@@ -9,11 +9,11 @@ import {
   TextInput,
   Dimensions,
   Image,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useWalletStore } from "../../store/useWalletStore";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -23,6 +23,18 @@ export const SendGiftScreen = ({ navigation }: any) => {
   const [recipient, setRecipient] = useState<any>(null);
   const [amount, setAmount] = useState("");
   const [pin, setPin] = useState("");
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: "success" | "error" | "warning" | "info" | "confirm";
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const { sendGift, verifyReceiver, isLoading } = useWalletStore();
 
@@ -38,7 +50,12 @@ export const SendGiftScreen = ({ navigation }: any) => {
 
   const handleVerify = async () => {
     if (!accountNo.trim()) {
-      Alert.alert("Error", "Please enter a wallet account number");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Error",
+        message: "Please enter a wallet account number",
+      });
       return;
     }
 
@@ -49,41 +66,76 @@ export const SendGiftScreen = ({ navigation }: any) => {
       }
     } catch (error: any) {
       setRecipient(null);
-      Alert.alert("Verification Failed", error.message || "Wallet not found");
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Verification Failed",
+        message: error.message || "Wallet not found",
+      });
     }
   };
 
   const handleConfirmSend = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount to send.");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Invalid Amount",
+        message: "Please enter a valid amount to send.",
+      });
       return;
     }
     if (pin.length < 4) {
-      Alert.alert("Security PIN", "Please enter your 6-digit Wallet PIN.");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Security PIN",
+        message: "Please enter your 6-digit Wallet PIN.",
+      });
       return;
     }
-    Alert.alert(
-      "Confirm Transaction",
-      `Are you sure you want to send ₹${amount} to ${accountNo}?`,
-      [
-        { text: "Cancel", style: "cancel" },
+    setPopup({
+      visible: true,
+      type: "confirm",
+      title: "Confirm Transaction",
+      message: `Are you sure you want to send ₹${amount} to ${accountNo}?`,
+      buttons: [
+        { text: "Cancel", style: "cancel", onPress: () => setPopup(p => ({ ...p, visible: false })) },
         {
           text: "Confirm",
           onPress: async () => {
             try {
+              setPopup(p => ({ ...p, visible: false }));
               const res = await sendGift(accountNo, Number(amount), pin);
               if (res.success) {
-                Alert.alert("Success", "Gift sent successfully!", [
-                  { text: "OK", onPress: () => navigation.goBack() }
-                ]);
+                setPopup({
+                  visible: true,
+                  type: "success",
+                  title: "Success",
+                  message: "Gift sent successfully!",
+                  buttons: [
+                    {
+                      text: "OK",
+                      onPress: () => {
+                        setPopup(p => ({ ...p, visible: false }));
+                        navigation.goBack();
+                      }
+                    }
+                  ]
+                });
               }
             } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to send gift");
+              setPopup({
+                visible: true,
+                type: "error",
+                title: "Error",
+                message: error.message || "Failed to send gift",
+              });
             }
           }
         }
       ]
-    );
+    });
   };
 
   return (
@@ -203,6 +255,15 @@ export const SendGiftScreen = ({ navigation }: any) => {
           <MaterialIcons name="send" size={18} color="white" />
         </TouchableOpacity>
       </View>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };

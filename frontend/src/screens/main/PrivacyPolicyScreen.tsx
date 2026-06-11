@@ -40,7 +40,7 @@ export const PrivacyPolicyScreen = ({ navigation }: any) => {
 
       <ScrollView 
         style={styles.scrollView}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
       >
         <Text style={styles.lastUpdated}>LAST UPDATED: JANUARY 2026</Text>
         
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {

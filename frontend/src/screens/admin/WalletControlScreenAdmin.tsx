@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   ScrollView,
@@ -23,9 +22,11 @@ import { InfoCard } from "../../components/InfoCard";
 import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { ScreenHeader } from "../../components/ScreenHeader";
+import { usePopup } from "../../components/PopupModal";
 
 export const WalletControlScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showWarning, showSuccess, showError, PopupElement } = usePopup();
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,11 +71,11 @@ export const WalletControlScreenAdmin = ({ navigation }: any) => {
     if (!selectedWallet) return;
     const amt = parseFloat(adjustAmount);
     if (isNaN(amt) || amt <= 0) {
-      Alert.alert("Invalid amount", "Please enter a valid positive number.");
+      showWarning("Invalid amount", "Please enter a valid positive number.");
       return;
     }
     if (!adjustReason.trim()) {
-      Alert.alert(
+      showWarning(
         "Reason required",
         "Please provide a reason for the adjustment.",
       );
@@ -87,14 +88,14 @@ export const WalletControlScreenAdmin = ({ navigation }: any) => {
         type: adjustType,
         reason: adjustReason.trim(),
       });
-      Alert.alert(
+      showSuccess(
         "Success",
         `Wallet ${adjustType === "CREDIT" ? "credited" : "debited"} by ₹${amt}.`,
       );
       setShowAdjustModal(false);
       load();
     } catch (e: any) {
-      Alert.alert(
+      showError(
         "Error",
         e.response?.data?.message || "Failed to adjust wallet.",
       );
@@ -419,6 +420,7 @@ export const WalletControlScreenAdmin = ({ navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <PopupElement />
     </SafeScreen>
   );
 };

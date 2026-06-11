@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   StatusBar,
-  Alert,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
@@ -16,12 +15,14 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { usePopup } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 
 export const CreateWalletScreenAdmin = ({ navigation, onWalletCreated }: any) => {
   const { updateAuthData, signOut } = useAuth();
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, PopupElement } = usePopup();
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -35,17 +36,17 @@ export const CreateWalletScreenAdmin = ({ navigation, onWalletCreated }: any) =>
 
   const handleCreateWallet = async () => {
     if (!pin || !confirmPin) {
-      Alert.alert('Error', 'Please fill all fields');
+      showError('Error', 'Please fill all fields');
       return;
     }
 
     if (pin.length !== 6) {
-      Alert.alert('Error', 'PIN must be exactly 6 digits');
+      showError('Error', 'PIN must be exactly 6 digits');
       return;
     }
 
     if (pin !== confirmPin) {
-      Alert.alert('Error', 'PINs do not match');
+      showError('Error', 'PINs do not match');
       return;
     }
 
@@ -60,40 +61,30 @@ export const CreateWalletScreenAdmin = ({ navigation, onWalletCreated }: any) =>
         // Update auth context to reflect wallet initialization
         await updateAuthData({ is_wallet_initialized: true });
 
-        Alert.alert(
+        showSuccess(
           'Success!',
           `Wallet created successfully!\n\nYour Wallet Account Number:\n${response.data.data.wallet_account_no}`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (onWalletCreated) {
-                  onWalletCreated();
-                }
-              },
-            },
-          ]
         );
+        setTimeout(() => {
+          if (onWalletCreated) {
+            onWalletCreated();
+          }
+        }, 1500);
       }
     } catch (error: any) {
       console.error('Wallet creation error:', error);
       console.error('Error response:', error.response?.data);
 
       if (error.response?.status === 401) {
-        Alert.alert(
+        showError(
           'Session Expired',
           'Your session is invalid or expired. Please login again.',
-          [
-            {
-              text: 'OK',
-              onPress: () => signOut(),
-            },
-          ]
         );
+        setTimeout(() => signOut(), 1500);
         return;
       }
 
-      Alert.alert(
+      showError(
         'Error',
         error.response?.data?.message || error.message || 'Failed to create wallet'
       );
@@ -311,6 +302,7 @@ export const CreateWalletScreenAdmin = ({ navigation, onWalletCreated }: any) =>
           },
         ]}
       />
+      <PopupElement />
     </View>
   );
 };
@@ -344,7 +336,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   header: {
     alignItems: 'center',

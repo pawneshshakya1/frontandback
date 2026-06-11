@@ -600,6 +600,7 @@ export const MyEventsScreen = ({ navigation }: any) => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <MaterialIcons name="cancel" size={22} color="#ef4444" />
@@ -682,6 +683,7 @@ export const MyEventsScreen = ({ navigation }: any) => {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.modalOverlay}
         >
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <MaterialIcons name="vpn-key" size={22} color="#fbbf24" />
@@ -1126,10 +1128,9 @@ const styles = StyleSheet.create({
   // --- Publish Modal ---
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   modalCard: {
     width: "100%",

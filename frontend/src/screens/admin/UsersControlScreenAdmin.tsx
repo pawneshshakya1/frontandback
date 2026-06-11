@@ -333,7 +333,7 @@ const s = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         paddingBottom: 24,
     },
     headerTitle: {
@@ -351,7 +351,7 @@ const s = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         marginBottom: 32,
     },
     statCard: {
@@ -404,7 +404,7 @@ const s = StyleSheet.create({
 
     // Section
     section: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         marginBottom: 32,
     },
     sectionTitle: {

@@ -5,7 +5,6 @@ const elitePassSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    enum: ['pro', 'elite', 'supreme', 'standard_partner', 'sponsored_partner', 'premium_partner']
   },
   name: {
     type: String,
@@ -61,6 +60,14 @@ const elitePassSchema = new mongoose.Schema({
   partner_tier: {
     type: String,
     enum: ['standard', 'sponsored', 'premium', null],
+    default: null,
+  },
+  commission_rate: {
+    type: Number,
+    default: null,
+  },
+  max_events_per_month: {
+    type: Number,
     default: null,
   },
 }, {

@@ -11,18 +11,19 @@ import {
   Image,
   Modal,
   TextInput,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { adminAPI } from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const UserDetailScreenAdmin = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const { userId } = route.params || {};
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -60,30 +61,24 @@ export const UserDetailScreenAdmin = ({ navigation, route }: any) => {
   const handleBlockToggle = async () => {
     if (!user) return;
     const newBlocked = !user.is_blocked;
-    Alert.alert(
+    showConfirm(
       newBlocked ? "Block User" : "Unblock User",
       `Are you sure you want to ${newBlocked ? "block" : "unblock"} ${user.username}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: newBlocked ? "Block" : "Unblock",
-          style: newBlocked ? "destructive" : "default",
-          onPress: async () => {
-            try {
-              await adminAPI.blockUser(userId, { blocked: newBlocked, reason: "Admin action" });
-              setUser({ ...user, is_blocked: newBlocked });
-            } catch (err: any) {
-              Alert.alert("Error", err.response?.data?.message || "Failed");
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await adminAPI.blockUser(userId, { blocked: newBlocked, reason: "Admin action" });
+          setUser({ ...user, is_blocked: newBlocked });
+        } catch (err: any) {
+          showError("Error", err.response?.data?.message || "Failed");
+        }
+      },
+      newBlocked ? "Block" : "Unblock",
     );
   };
 
   const handleAdjustWallet = async () => {
     if (!adjustModal.amount || parseFloat(adjustModal.amount) <= 0) {
-      Alert.alert("Invalid", "Enter a valid amount");
+      showError("Invalid", "Enter a valid amount");
       return;
     }
     setAdjusting(true);
@@ -94,10 +89,10 @@ export const UserDetailScreenAdmin = ({ navigation, route }: any) => {
         reason: adjustModal.reason || "Admin adjustment",
       });
       setAdjustModal({ visible: false, walletId: "", type: "CREDIT", amount: "", reason: "" });
-      Alert.alert("Success", "Wallet balance adjusted");
+      showSuccess("Success", "Wallet balance adjusted");
       loadUserData();
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || "Failed");
+      showError("Error", err.response?.data?.message || "Failed");
     } finally {
       setAdjusting(false);
     }
@@ -318,6 +313,7 @@ export const UserDetailScreenAdmin = ({ navigation, route }: any) => {
       {/* Adjust Balance Modal */}
       <Modal visible={adjustModal.visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Adjust Balance</Text>
             <View style={styles.typeRow}>
@@ -364,6 +360,7 @@ export const UserDetailScreenAdmin = ({ navigation, route }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -431,7 +428,7 @@ const styles = StyleSheet.create({
   txnAmount: { fontSize: 14, fontWeight: "bold" },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 },
+  modalOverlay: { flex: 1, justifyContent: "center", padding: 16 },
   modalContent: { backgroundColor: COLORS.surface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   modalTitle: { color: "white", fontSize: 18, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
   typeRow: { flexDirection: "row", gap: 10, marginBottom: 16 },

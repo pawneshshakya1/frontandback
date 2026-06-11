@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
   StatusBar,
@@ -18,6 +17,7 @@ import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { COLORS } from '../../theme/colors';
 import api from '../../services/api';
+import { usePopup } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +35,7 @@ interface FriendData {
 
 export const FriendsManagementScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [friends, setFriends] = useState<FriendData[]>([]);
@@ -119,31 +120,24 @@ export const FriendsManagementScreenAdmin = ({ navigation }: any) => {
   };
 
   const handleBlockUser = async (userId: string) => {
-    Alert.alert('Block User', 'Are you sure you want to block this user?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Block',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.post(`/friends/block/${userId}`);
-            Alert.alert('Success', 'User blocked');
-            fetchData();
-          } catch (error) {
-            Alert.alert('Error', 'Failed to block user');
-          }
-        },
-      },
-    ]);
+    showConfirm('Block User', 'Are you sure you want to block this user?', async () => {
+      try {
+        await api.post(`/friends/block/${userId}`);
+        showSuccess('Success', 'User blocked');
+        fetchData();
+      } catch (error) {
+        showError('Error', 'Failed to block user');
+      }
+    }, 'Block');
   };
 
   const handleUnblockUser = async (userId: string) => {
     try {
       await api.post(`/friends/unblock/${userId}`);
-      Alert.alert('Success', 'User unblocked');
+      showSuccess('Success', 'User unblocked');
       fetchData();
     } catch (error) {
-      Alert.alert('Error', 'Failed to unblock user');
+      showError('Error', 'Failed to unblock user');
     }
   };
 
@@ -309,6 +303,7 @@ export const FriendsManagementScreenAdmin = ({ navigation }: any) => {
       {/* Detail Modal */}
       <Modal visible={detailModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Friend Details</Text>
@@ -386,6 +381,7 @@ export const FriendsManagementScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -429,7 +425,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 16, color: 'rgba(255,255,255,0.3)', marginTop: 12 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
+  modalOverlay: { flex: 1, justifyContent: 'center', padding: 16 },
   modalContent: { backgroundColor: COLORS.surface, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: 'white' },

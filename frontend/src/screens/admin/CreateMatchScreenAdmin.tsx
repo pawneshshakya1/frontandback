@@ -11,7 +11,6 @@ import {
   StatusBar,
   Platform,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Switch,
 } from "react-native";
@@ -25,6 +24,7 @@ import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { COLORS, SPACING, RADIUS } from '../../theme/colors';
 import { adminAPI } from '../../services/api';
 import { Button } from '../../components/Button';
+import { usePopup } from '../../components/PopupModal';
 
 const { width } = Dimensions.get("window");
 
@@ -696,6 +696,7 @@ const Step3 = ({
 
 export const CreateMatchScreenAdmin = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
+  const { showSuccess, showError, PopupElement } = usePopup();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedMap, setSelectedMap] = useState("BERMUDA");
   const [gameType, setGameType] = useState<"CS" | "BR">("CS");
@@ -760,7 +761,7 @@ export const CreateMatchScreenAdmin = ({ navigation, route }: any) => {
     if (value) {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert("Permission denied", "We need location permissions to attach your location to the event.");
+        showError("Permission denied", "We need location permissions to attach your location to the event.");
         setUseLocation(false);
         return;
       }
@@ -944,15 +945,15 @@ export const CreateMatchScreenAdmin = ({ navigation, route }: any) => {
 
         if (response.data.success) {
           console.log("✅ Event created successfully:", response.data.data);
-          Alert.alert("Saved", isEditMode ? "Draft updated!" : "Event saved as draft. Publish from My Events.");
+          showSuccess("Saved", isEditMode ? "Draft updated!" : "Event saved as draft. Publish from My Events.");
           navigation.goBack();
         } else {
           console.log("❌ Event creation failed:", response.data);
-          Alert.alert("Error", response.data.message || "Failed to save match");
+          showError("Error", response.data.message || "Failed to save match");
         }
       } catch (error: any) {
         console.error("Match creation error:", error.response?.data || error);
-        Alert.alert("Error", error.response?.data?.message || "Failed to save match");
+        showError("Error", error.response?.data?.message || "Failed to save match");
       } finally {
         setLoading(false);
       }
@@ -1136,6 +1137,7 @@ export const CreateMatchScreenAdmin = ({ navigation, route }: any) => {
         themeVariant="dark"
         accentColor={COLORS.primary}
       />
+      <PopupElement />
     </View>
   );
 };
@@ -1169,7 +1171,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 60,
     paddingBottom: 20,
     zIndex: 10,
@@ -1247,7 +1249,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   progressContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     marginBottom: 32,
     zIndex: 10,
   },
@@ -1287,7 +1289,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepContainer: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     gap: 32,
   },
   inputGroup: {
@@ -1372,14 +1374,14 @@ const styles = StyleSheet.create({
     color: "white",
   },
   playerCountWrapper: {
-    marginHorizontal: -24,
+    marginHorizontal: -16,
   },
   playerCountScroll: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     gap: 12,
   },
   countChip: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     height: 40,
     borderRadius: 20,
     backgroundColor: COLORS.surface,
@@ -1642,7 +1644,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 16,
   },
   mainButton: {

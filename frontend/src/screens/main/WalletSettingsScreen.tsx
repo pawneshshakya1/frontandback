@@ -9,12 +9,12 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { walletAPI } from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { PopupModal } from "../../components/PopupModal";
 
 const fmt = (n: number) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
 
@@ -33,6 +33,18 @@ export const WalletSettingsScreen = ({ navigation }: any) => {
   const [dirty, setDirty] = useState(false);
   const [customEditing, setCustomEditing] = useState<string | null>(null);
   const [customValue, setCustomValue] = useState("");
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: "success" | "error" | "warning" | "info" | "confirm";
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   const loadSettings = useCallback(async () => {
     try {
@@ -43,7 +55,12 @@ export const WalletSettingsScreen = ({ navigation }: any) => {
       }
     } catch (err) {
       console.error("[WalletSettings] load error:", err);
-      Alert.alert("Error", "Failed to load wallet settings");
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Error",
+        message: "Failed to load wallet settings",
+      });
     } finally {
       setLoading(false);
     }
@@ -83,15 +100,27 @@ export const WalletSettingsScreen = ({ navigation }: any) => {
         setSettings(res.data.data);
         setDraft(res.data.data);
         setDirty(false);
-        Alert.alert("Success", "Wallet settings updated");
+        setPopup({
+          visible: true,
+          type: "success",
+          title: "Success",
+          message: "Wallet settings updated",
+        });
       } else {
-        Alert.alert("Error", res.data?.message || "Failed to save settings");
+        setPopup({
+          visible: true,
+          type: "error",
+          title: "Error",
+          message: res.data?.message || "Failed to save settings",
+        });
       }
     } catch (err: any) {
-      Alert.alert(
-        "Error",
-        err?.response?.data?.message || "Failed to save settings"
-      );
+      setPopup({
+        visible: true,
+        type: "error",
+        title: "Error",
+        message: err?.response?.data?.message || "Failed to save settings",
+      });
     } finally {
       setSaving(false);
     }
@@ -112,7 +141,12 @@ export const WalletSettingsScreen = ({ navigation }: any) => {
     if (!customEditing) return;
     const num = parseInt(customValue, 10);
     if (isNaN(num) || num < 0) {
-      Alert.alert("Invalid", "Please enter a valid non-negative number");
+      setPopup({
+        visible: true,
+        type: "warning",
+        title: "Invalid",
+        message: "Please enter a valid non-negative number",
+      });
       return;
     }
     updateDraft(customEditing, num);
@@ -507,6 +541,15 @@ export const WalletSettingsScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
       )}
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };

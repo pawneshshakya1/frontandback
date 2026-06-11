@@ -473,11 +473,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    padding: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
     backgroundColor: "rgba(20, 20, 20, 0.75)",
   },
   formGap: {
-    gap: 14,
+    gap: 16,
   },
   inputGroup: {
     gap: 6,

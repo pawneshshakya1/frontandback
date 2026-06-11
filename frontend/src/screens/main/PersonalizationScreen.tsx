@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     marginRight: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 40,
   },
   sectionTitle: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 20,
+    padding: 16,
   },
   itemLeft: {
     flexDirection: "row",
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: "rgba(255,255,255,0.05)",
-    marginHorizontal: 20,
+    marginHorizontal: 16,
   },
   footerText: {
     textAlign: "center",

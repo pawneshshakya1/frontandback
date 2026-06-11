@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -9,16 +9,25 @@ import {
   Dimensions,
   ActivityIndicator,
   Modal,
+  Animated,
+  Easing,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { WebView } from "react-native-webview";
+import Svg, {
+  Rect,
+  Defs,
+  LinearGradient as SvgGradient,
+  Stop,
+} from "react-native-svg";
 import api, { setAuthToken, elitePassAPI } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS } from "../../theme/colors";
 import { PopupModal } from "../../components/PopupModal";
+import { PartnerUpgrade } from "../../components/partner/PartnerUpgrade";
 
 const { width } = Dimensions.get("window");
 
@@ -44,6 +53,8 @@ interface ElitePass {
   benefits: Benefit[];
   pass_category?: string;
   partner_tier?: string;
+  commission_rate?: number | null;
+  max_events_per_month?: number | null;
 }
 
 // Partner tier UI config
@@ -53,7 +64,7 @@ const PARTNER_TIER_UI: Record<string, { color: string; icon: string }> = {
   premium: { color: "#fbbf24", icon: "workspace-premium" },
 };
 
-export const ElitePassScreen = ({ navigation }: any) => {
+export const ElitePassScreen = ({ navigation, route }: any) => {
   const insets = useSafeAreaInsets();
   const { authData } = useAuth();
   const [passes, setPasses] = useState<ElitePass[]>([]);
@@ -63,8 +74,28 @@ export const ElitePassScreen = ({ navigation }: any) => {
   const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<"user" | "partner">("user");
+  const [activeSection, setActiveSection] = useState<"user" | "partner">(
+    route?.params?.initialTab === "partner" ? "partner" : "user"
+  );
   const [userPassStatus, setUserPassStatus] = useState<any>(null);
+
+  // Hero card snake animation
+  const snakeProgress = useRef(new Animated.Value(0)).current;
+  const [heroSize, setHeroSize] = useState({ w: 0, h: 0 });
+  const HeroAnimatedRect = useRef(Animated.createAnimatedComponent(Rect)).current;
+
+  useEffect(() => {
+    const anim = Animated.loop(
+      Animated.timing(snakeProgress, {
+        toValue: 1,
+        duration: 2500,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      })
+    );
+    anim.start();
+    return () => anim.stop();
+  }, []);
 
   // Popup state
   const [popup, setPopup] = useState({ visible: false, type: "info" as "success" | "error" | "warning" | "info" | "confirm", title: "", message: "" });
@@ -152,7 +183,7 @@ export const ElitePassScreen = ({ navigation }: any) => {
   };
 
   const handlePaymentStateChange = (navState: any) => {
-    if (navState.url.includes("battlecore.app/payment-return") || navState.url.includes("google.com")) {
+    if (navState.url.includes("battlecore.app/payment-return")) {
       setShowPaymentModal(false);
       verifyPurchase();
     }
@@ -209,17 +240,6 @@ export const ElitePassScreen = ({ navigation }: any) => {
     </html>
   `;
 
-  const defaultBenefits = [
-    { title: "Host Events", desc: "Create up to N events in 30 days", icon: "event" },
-    { title: "Play With Friends", desc: "Create friends-only tournaments", icon: "group" },
-    { title: "Friend Chat", desc: "Direct chat with all your friends", icon: "chat" },
-    { title: "Priority Support", desc: "Fast customer support", icon: "support-agent" },
-  ];
-
-  const benefits = passes.length > 0 && passes[0].benefits?.length > 0
-    ? passes.flatMap((p) => p.benefits || [])
-    : defaultBenefits;
-
   if (loading) {
     return (
       <View style={styles.container}>
@@ -238,8 +258,6 @@ export const ElitePassScreen = ({ navigation }: any) => {
     );
   }
 
-  const isPartner = userPassStatus?.is_partner || authData?.role === "PARTNER";
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
@@ -254,20 +272,11 @@ export const ElitePassScreen = ({ navigation }: any) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <MaterialIcons name="chevron-left" size={28} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Elite Pass</Text>
+        <Text style={styles.headerTitle}>User Tier</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 40 }}>
-        {/* Hero Card */}
-        <View style={{ paddingHorizontal: 16, marginTop: 8, marginBottom: 24 }}>
-          <LinearGradient colors={["#f47b25", "#8b5cf6"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
-            <MaterialIcons name="stars" size={64} color="white" style={{ opacity: 0.9 }} />
-            <Text style={styles.heroTitle}>JOIN THE ELITE</Text>
-            <Text style={styles.heroSubtitle}>Unlock exclusive benefits and dominate the leaderboard</Text>
-          </LinearGradient>
-        </View>
-
         {/* ============ SECTION TABS ============ */}
         <View style={styles.sectionTabs}>
           <TouchableOpacity
@@ -286,188 +295,287 @@ export const ElitePassScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </View>
 
+        {/* Hero Card — Tab-Aware Active Plan */}
+        {(() => {
+          const activePass = userPassStatus?.has_active_pass
+            ? passes.find((p) => p.pass_type === userPassStatus.pass_type)
+            : null;
+          const activePartnerPass = userPassStatus?.is_partner
+            ? partnerPasses.find((p) => p.partner_tier === userPassStatus.partner_tier)
+            : null;
+
+          const isUserTab = activeSection === "user";
+          const activePlan = isUserTab ? activePass : activePartnerPass;
+          const hasActive = !!activePlan;
+          const planIcon = isUserTab
+            ? activePass?.pass_type === "supreme"
+              ? "stars"
+              : activePass?.pass_type === "pro"
+                ? "military-tech"
+                : "workspace-premium"
+            : activePartnerPass
+              ? PARTNER_TIER_UI[activePartnerPass.partner_tier || "standard"]?.icon || "handshake"
+              : "handshake";
+          const planName = isUserTab
+            ? activePass?.name || ""
+            : activePartnerPass?.name || "";
+          const planLabel = isUserTab
+            ? activePass
+              ? `${activePass.pass_type?.toUpperCase()} PASS`
+              : "JOIN THE ELITE"
+            : activePartnerPass
+              ? `${activePartnerPass.partner_tier?.toUpperCase()} PARTNER`
+              : "BECOME A HOST";
+
+          const heroPerim =
+            heroSize.w > 0 && heroSize.h > 0
+              ? 2 * (heroSize.w - 2 * 24) + 2 * (heroSize.h - 2 * 24) + 2 * Math.PI * 24
+              : 0;
+          const heroDashArr = heroPerim > 0 ? `${800} ${heroPerim - 800}` : "80 1000";
+          const heroDashOffset = snakeProgress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, -heroPerim],
+          });
+
+          return (
+            <View style={{ paddingHorizontal: 16, marginTop: 8, marginBottom: 20 }}>
+              <LinearGradient
+                colors={[COLORS.gradientPrimary[0], COLORS.gradientPrimary[1]]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.tierHeroCard, { borderColor: "rgba(244,123,37,0.4)" }]}
+                onLayout={(e) => {
+                  const { width, height } = e.nativeEvent.layout;
+                  setHeroSize({ w: width, h: height });
+                }}
+              >
+                {/* Snake border for active plan */}
+                {hasActive && heroSize.w > 0 && heroSize.h > 0 && (
+                  <Svg
+                    width={heroSize.w}
+                    height={heroSize.h}
+                    viewBox={`0 0 ${heroSize.w} ${heroSize.h}`}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                  >
+                    <Defs>
+                      <SvgGradient id="heroSnakeGrad2" x1="0" y1="0" x2="1" y2="1">
+                        <Stop offset="0%" stopColor="#f47b25" stopOpacity="1" />
+                        <Stop offset="40%" stopColor="#f47b25" stopOpacity="0.5" />
+                        <Stop offset="100%" stopColor="#f47b25" stopOpacity="0" />
+                      </SvgGradient>
+                    </Defs>
+                    <HeroAnimatedRect
+                      x={0} y={0}
+                      width={heroSize.w} height={heroSize.h}
+                      rx={24} ry={24}
+                      stroke="#f47b25"
+                      strokeWidth={10}
+                      strokeLinecap="round"
+                      fill="none"
+                      strokeDasharray={heroDashArr}
+                      strokeDashoffset={heroDashOffset}
+                      opacity={0.15}
+                    />
+                    <HeroAnimatedRect
+                      x={0} y={0}
+                      width={heroSize.w} height={heroSize.h}
+                      rx={24} ry={24}
+                      stroke="url(#heroSnakeGrad2)"
+                      strokeWidth={4}
+                      strokeLinecap="round"
+                      fill="none"
+                      strokeDasharray={heroDashArr}
+                      strokeDashoffset={heroDashOffset}
+                    />
+                  </Svg>
+                )}
+
+                {/* Glow orb */}
+                <View style={styles.tierHeroGlow} />
+
+                {/* Top section */}
+                <View style={styles.tierHeroTop}>
+                  <View style={{ flex: 1 }}>
+                    {(hasActive || !isUserTab) ? (
+                      <View style={styles.tierHeroPill}>
+                        <MaterialIcons name={planIcon as any} size={12} color="white" />
+                        <Text style={styles.tierHeroPillText}>{planLabel}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.tierHeroName}>{hasActive ? planName : planLabel}</Text>
+
+                  </View>
+                  <View style={styles.tierHeroIconCircle}>
+                    <MaterialIcons
+                      name={hasActive ? (planIcon as any) : (isUserTab ? "stars" : "handshake")}
+                      size={32}
+                      color="white"
+                    />
+                  </View>
+                </View>
+
+                {/* Stats row (only for active plans) */}
+                {hasActive && isUserTab && activePass && (
+                  <View style={styles.tierHeroStats}>
+                    <View style={styles.tierHeroStat}>
+                      <Text style={styles.tierHeroStatVal}>₹{activePass.price}</Text>
+                      <Text style={styles.tierHeroStatLbl}>PRICE</Text>
+                    </View>
+                    <View style={styles.tierHeroDivider} />
+                    <View style={styles.tierHeroStat}>
+                      <Text style={styles.tierHeroStatVal}>{activePass.event_count || "∞"}</Text>
+                      <Text style={styles.tierHeroStatLbl}>EVENTS</Text>
+                    </View>
+
+                    <View style={styles.tierHeroDivider} />
+                    <View style={styles.tierHeroStat}>
+                      <Text style={styles.tierHeroStatVal}>{new Date(userPassStatus?.pass_expiry).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}</Text>
+                      <Text style={styles.tierHeroStatLbl}>EXPIRES</Text>
+                    </View>
+                  </View>
+                )}
+
+                {hasActive && !isUserTab && activePartnerPass && (
+                  <View style={styles.tierHeroStats}>
+                    <View style={styles.tierHeroStat}>
+                      <Text style={styles.tierHeroStatVal}>
+                        {activePartnerPass.commission_rate != null ? `${activePartnerPass.commission_rate}%` : "—"}
+                      </Text>
+                      <Text style={styles.tierHeroStatLbl}>PLATFORM FEE</Text>
+                    </View>
+                    <View style={styles.tierHeroDivider} />
+                    <View style={styles.tierHeroStat}>
+                      <Text style={styles.tierHeroStatVal}>
+                        {activePartnerPass.max_events_per_month === 999
+                          ? "∞"
+                          : activePartnerPass.max_events_per_month || "—"}
+                      </Text>
+                      <Text style={styles.tierHeroStatLbl}>EVENTS</Text>
+                    </View>
+                    <View style={styles.tierHeroDivider} />
+                    <View style={styles.tierHeroStat}>
+                      <Text style={styles.tierHeroStatVal}>₹{activePartnerPass.price}</Text>
+                      <Text style={styles.tierHeroStatLbl}>PRICE</Text>
+                    </View>
+                  </View>
+                )}
+
+                {!hasActive && (
+                  <Text style={styles.tierHeroSub}>
+                    {isUserTab
+                      ? "Unlock exclusive benefits and dominate the leaderboard"
+                      : "Create your own esports tournaments, set entry fees, prize pools, and earn from every match."
+                    }
+                  </Text>
+                )}
+              </LinearGradient>
+            </View>
+          );
+        })()}
+
         <View style={styles.content}>
           {/* ============ USER PASSES SECTION ============ */}
           {activeSection === "user" && (
             <>
-              <Text style={styles.sectionTitle}>MEMBERSHIP BENEFITS</Text>
-              <View style={styles.benefitsGrid}>
-                {benefits.slice(0, 4).map((item, index) => {
-                  const desc = "description" in item ? item.description : "desc" in item ? (item as any).desc : "";
-                  const icon = "icon" in item ? item.icon : "star";
-                  return (
-                    <View key={index} style={styles.benefitCard}>
-                      <View style={styles.iconBg}>
-                        <MaterialIcons name={(icon as any) || "star"} size={24} color="#f47b25" />
-                      </View>
-                      <Text style={styles.benefitTitle}>{item.title}</Text>
-                      <Text style={styles.benefitDesc}>{desc}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-
               <Text style={styles.sectionTitle}>CHOOSE YOUR PLAN</Text>
-              <View style={styles.plansContainer}>
-                {passes.length === 0 ? (
+              {(() => {
+                const userPassesList = passes.filter(
+                  (plan) => !userPassStatus?.has_active_pass || plan.pass_type !== userPassStatus.pass_type
+                );
+                const totalUserPasses = passes.length;
+                const userTiers = passes.map((plan) => ({
+                  key: plan.pass_type,
+                  name: plan.name,
+                  price: plan.price,
+                  commission: plan.winnings_boost ? `+${plan.winnings_boost}%` : "—",
+                  events: plan.event_count ? `${plan.event_count} events` : "—",
+                  entryFee: "—",
+                  prizePool: "—",
+                  color: plan.color,
+                  icon: plan.pass_type === "supreme"
+                    ? "stars"
+                    : plan.pass_type === "pro"
+                      ? "military-tech"
+                      : "workspace-premium",
+                  features: plan.features || [],
+                }));
+                const USER_TIER_ORDER = ["pro", "elite", "supreme"];
+                const handleUpgradeUser = (tierKey: string) => {
+                  const matchedPlan = passes.find(
+                    (p) => p.pass_type === tierKey
+                  );
+                  if (matchedPlan) handlePurchase(matchedPlan);
+                };
+                return totalUserPasses === 0 ? (
                   <View style={styles.emptyState}>
                     <MaterialIcons name="info-outline" size={48} color="rgba(255,255,255,0.3)" />
                     <Text style={styles.emptyText}>No passes available</Text>
                     <Text style={styles.emptySubtext}>Check back later for exciting offers</Text>
                   </View>
                 ) : (
-                  passes.map((plan) => (
-                    <View
-                      key={plan._id}
-                      style={[styles.planCard, plan.is_popular && styles.planCardPopular, { borderColor: plan.is_popular ? plan.color : "rgba(255,255,255,0.1)" }]}
-                    >
-                      {plan.is_popular && (
-                        <View style={[styles.popularTag, { backgroundColor: plan.color }]}>
-                          <Text style={styles.popularTagText}>MOST POPULAR</Text>
-                        </View>
-                      )}
-                      <View style={styles.planHeader}>
-                        <Text style={[styles.planName, { color: plan.color }]}>{plan.name.toUpperCase()}</Text>
-                        <Text style={styles.planPrice}>
-                          ₹{plan.price}
-                          <Text style={styles.planPeriod}>/{plan.duration_days} days</Text>
-                        </Text>
-                      </View>
-                      {plan.event_count ? (
-                        <View style={[styles.eventCountPill, { borderColor: plan.color, backgroundColor: `${plan.color}1A` }]}>
-                          <MaterialIcons name="event" size={16} color={plan.color} />
-                          <Text style={[styles.eventCountText, { color: plan.color }]}>
-                            {plan.event_count} Events Included
-                          </Text>
-                        </View>
-                      ) : null}
-                      <View style={styles.planFeatures}>
-                        {plan.features?.map((feature, idx) => (
-                          <View key={idx} style={styles.featureRow}>
-                            <MaterialIcons name="check-circle" size={16} color={plan.color} />
-                            <Text style={styles.featureText}>{feature}</Text>
-                          </View>
-                        ))}
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.planSubscribeBtn, plan.is_popular ? { backgroundColor: plan.color } : { backgroundColor: "white" }]}
-                        onPress={() => handlePurchase(plan)}
-                        disabled={purchasing === plan._id}
-                      >
-                        {purchasing === plan._id ? (
-                          <ActivityIndicator size="small" color={plan.is_popular ? "white" : "#0d0d0d"} />
-                        ) : (
-                          <Text style={[styles.planSubscribeBtnText, plan.is_popular ? { color: "white" } : { color: "#0d0d0d" }]}>SELECT PLAN</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  ))
-                )}
-              </View>
+                  <View style={{ marginHorizontal: -16 }}>
+                    <PartnerUpgrade
+                      currentTier={userPassStatus?.has_active_pass ? userPassStatus.pass_type : ""}
+                      handleUpgradeTier={handleUpgradeUser}
+                      upgrading={purchasing !== null}
+                      tiers={userTiers}
+                      allUpgradable={!userPassStatus?.has_active_pass}
+                      tierOrder={USER_TIER_ORDER}
+                    />
+                  </View>
+                );
+              })()}
             </>
           )}
 
           {/* ============ PARTNER PASSES SECTION ============ */}
           {activeSection === "partner" && (
             <>
-              {/* Partner CTA Banner */}
-              <View style={styles.partnerCTA}>
-                <LinearGradient colors={["rgba(251,191,36,0.15)", "rgba(245,158,11,0.05)"]} style={styles.partnerCTAGradient}>
-                  <View style={styles.partnerCTAIcon}>
-                    <MaterialIcons name="handshake" size={32} color="#fbbf24" />
-                  </View>
-                  <Text style={styles.partnerCTATitle}>BECOME A TOURNAMENT HOST</Text>
-                  <Text style={styles.partnerCTADescription}>
-                    Create your own esports tournaments, set entry fees, prize pools, and earn from every match. Choose a partner tier to get started!
-                  </Text>
-
-                  {isPartner && (
-                    <View style={styles.currentPartnerBadge}>
-                      <MaterialIcons name="check-circle" size={16} color={COLORS.success} />
-                      <Text style={styles.currentPartnerText}>
-                        You are a {userPassStatus?.partner_tier || "Standard"} Partner
-                      </Text>
-                    </View>
-                  )}
-                </LinearGradient>
-              </View>
-
-              {/* Partner Pass Benefits */}
-              <Text style={styles.sectionTitle}>PARTNER BENEFITS</Text>
-              <View style={styles.benefitsGrid}>
-                {[
-                  { title: "Create Tournaments", desc: "Host your own events", icon: "event" },
-                  { title: "Set Entry Fees", desc: "Monetize your events", icon: "paid" },
-                  { title: "Sponsor Support", desc: "Attract sponsors", icon: "campaign" },
-                  { title: "Analytics", desc: "Track your performance", icon: "analytics" },
-                ].map((item, index) => (
-                  <View key={index} style={styles.benefitCard}>
-                    <View style={[styles.iconBg, { backgroundColor: "rgba(251,191,36,0.1)" }]}>
-                      <MaterialIcons name={item.icon as any} size={24} color="#fbbf24" />
-                    </View>
-                    <Text style={styles.benefitTitle}>{item.title}</Text>
-                    <Text style={styles.benefitDesc}>{item.desc}</Text>
-                  </View>
-                ))}
-              </View>
-
               <Text style={styles.sectionTitle}>CHOOSE YOUR PARTNER TIER</Text>
-              <View style={styles.plansContainer}>
-                {partnerPasses.length === 0 ? (
-                  <View style={styles.emptyState}>
-                    <MaterialIcons name="info-outline" size={48} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.emptyText}>No partner passes available</Text>
-                    <Text style={styles.emptySubtext}>Check back later</Text>
+              {(() => {
+                const mappedTiers = partnerPasses.map((plan) => ({
+                  key: plan.partner_tier || "standard",
+                  name: plan.name,
+                  price: plan.price,
+                  commission: plan.commission_rate ? `${plan.commission_rate}%` : "0%",
+                  events: plan.max_events_per_month
+                    ? plan.max_events_per_month === 999
+                      ? "Unlimited"
+                      : `${plan.max_events_per_month}/mo`
+                    : "N/A",
+                  entryFee: "—",
+                  prizePool: "—",
+                  color: plan.color,
+                  icon: PARTNER_TIER_UI[plan.partner_tier || "standard"]?.icon || "shield",
+                  features: plan.features || [],
+                }));
+                const userIsPartner = userPassStatus?.is_partner;
+                const currentPartnerTier = userPassStatus?.partner_tier || "";
+                const handleUpgradeByTier = (tierKey: string) => {
+                  const matchedPlan = partnerPasses.find(
+                    (p) => p.partner_tier === tierKey
+                  );
+                  if (matchedPlan) handlePurchase(matchedPlan);
+                };
+                return (
+                  <View style={{ marginHorizontal: -16 }}>
+                    <PartnerUpgrade
+                      currentTier={userIsPartner ? currentPartnerTier : ""}
+                      handleUpgradeTier={handleUpgradeByTier}
+                      upgrading={purchasing !== null}
+                      tiers={
+                        mappedTiers.length > 0 ? mappedTiers : undefined
+                      }
+                      allUpgradable={!userIsPartner}
+                    />
                   </View>
-                ) : (
-                  partnerPasses.map((plan) => {
-                    const tierUI = PARTNER_TIER_UI[plan.partner_tier || "standard"];
-                    return (
-                      <View key={plan._id} style={[styles.planCard, plan.is_popular && styles.planCardPopular, { borderColor: plan.is_popular ? tierUI?.color || plan.color : "rgba(255,255,255,0.1)" }]}>
-                        {plan.is_popular && (
-                          <View style={[styles.popularTag, { backgroundColor: tierUI?.color || plan.color }]}>
-                            <Text style={styles.popularTagText}>RECOMMENDED</Text>
-                          </View>
-                        )}
-
-                        <View style={styles.planHeader}>
-                          <View style={styles.planNameRow}>
-                            <MaterialIcons name={tierUI?.icon as any || "shield"} size={20} color={tierUI?.color || plan.color} />
-                            <Text style={[styles.planName, { color: tierUI?.color || plan.color }]}>{plan.name.toUpperCase()}</Text>
-                          </View>
-                          <Text style={styles.planPrice}>
-                            ₹{plan.price}
-                            <Text style={styles.planPeriod}>/{plan.duration_days} days</Text>
-                          </Text>
-                        </View>
-
-                        <View style={styles.planFeatures}>
-                          {plan.features?.map((feature, idx) => (
-                            <View key={idx} style={styles.featureRow}>
-                              <MaterialIcons name="check-circle" size={16} color={tierUI?.color || plan.color} />
-                              <Text style={styles.featureText}>{feature}</Text>
-                            </View>
-                          ))}
-                        </View>
-
-                        <TouchableOpacity
-                          style={[styles.planSubscribeBtn, plan.is_popular ? { backgroundColor: tierUI?.color || plan.color } : { backgroundColor: "white" }]}
-                          onPress={() => handlePurchase(plan)}
-                          disabled={purchasing === plan._id}
-                        >
-                          {purchasing === plan._id ? (
-                            <ActivityIndicator size="small" color={plan.is_popular ? "white" : "#0d0d0d"} />
-                          ) : (
-                            <Text style={[styles.planSubscribeBtnText, plan.is_popular ? { color: "white" } : { color: "#0d0d0d" }]}>
-                              {isPartner ? "UPGRADE TIER" : "BECOME A PARTNER"}
-                            </Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
+                );
+              })()}
             </>
           )}
 
@@ -489,7 +597,7 @@ export const ElitePassScreen = ({ navigation }: any) => {
               source={{ html: paymentHtml }}
               onNavigationStateChange={handlePaymentStateChange}
               onShouldStartLoadWithRequest={(request) => {
-                if (request.url.includes('battlecore.app/payment-return') || request.url.includes('google.com') || !request.url.includes('cashfree')) {
+                if (request.url.includes('battlecore.app/payment-return')) {
                   setShowPaymentModal(false);
                   verifyPurchase();
                   return false;
@@ -521,13 +629,96 @@ export const ElitePassScreen = ({ navigation }: any) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0d" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingBottom: 24 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 24 },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "white" },
   scrollView: { flex: 1 },
-  heroCard: { height: 200, borderRadius: 24, padding: 24, alignItems: "center", justifyContent: "center", gap: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 },
-  heroTitle: { color: "white", fontSize: 28, fontWeight: "900", fontStyle: "italic", letterSpacing: 2, textAlign: "center" },
-  heroSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 14, textAlign: "center", lineHeight: 20 },
+  // Hero Card
+  tierHeroCard: {
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    overflow: "hidden",
+    position: "relative",
+  },
+  tierHeroGlow: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  tierHeroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  tierHeroPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  tierHeroPillText: {
+    color: "white",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+  tierHeroName: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "white",
+    fontStyle: "italic",
+    letterSpacing: -0.4,
+  },
+  tierHeroSub: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.7)",
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  tierHeroIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tierHeroStats: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  tierHeroStat: { alignItems: "center" },
+  tierHeroStatVal: { fontSize: 18, fontWeight: "900", color: "white" },
+  tierHeroStatLbl: {
+    fontSize: 8,
+    fontWeight: "bold",
+    color: "rgba(255,255,255,0.5)",
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  tierHeroDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: "rgba(255,255,255,0.15)",
+  },
+  tierExpiry: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    justifyContent: "center",
+  },
+  tierExpiryText: { fontSize: 11, color: "rgba(255,255,255,0.5)" },
 
   // Section Tabs
   sectionTabs: { flexDirection: "row", marginHorizontal: 16, marginBottom: 20, gap: 8 },
@@ -536,40 +727,9 @@ const styles = StyleSheet.create({
   sectionTabText: { fontSize: 11, fontWeight: "bold", color: "rgba(255,255,255,0.4)", letterSpacing: 0.5 },
   sectionTabTextActive: { color: "white" },
 
-  content: { paddingHorizontal: 20 },
+  content: { paddingHorizontal: 16 },
   sectionTitle: { fontSize: 11, fontWeight: "bold", color: "rgba(255,255,255,0.4)", letterSpacing: 1.5, marginTop: 12, marginBottom: 20, marginLeft: 4 },
-  benefitsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 32 },
-  benefitCard: { width: (width - 52) / 2, backgroundColor: "#1a1a1a", borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.05)" },
-  iconBg: { width: 44, height: 44, borderRadius: 12, backgroundColor: "rgba(244,123,37,0.1)", alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  benefitTitle: { color: "white", fontSize: 15, fontWeight: "bold", marginBottom: 4 },
-  benefitDesc: { color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 18 },
-  plansContainer: { gap: 16 },
-  planCard: { backgroundColor: "#1a1a1a", borderRadius: 24, padding: 24, borderWidth: 1, position: "relative", overflow: "hidden" },
-  planCardPopular: { backgroundColor: "rgba(244,123,37,0.05)" },
-  popularTag: { position: "absolute", top: 0, right: 0, paddingHorizontal: 16, paddingVertical: 6, borderBottomLeftRadius: 16 },
-  popularTagText: { color: "white", fontSize: 10, fontWeight: "bold", letterSpacing: 1 },
-  planHeader: { marginBottom: 20 },
-  planNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  planName: { fontSize: 12, fontWeight: "bold", letterSpacing: 2, marginBottom: 4 },
-  planPrice: { color: "white", fontSize: 32, fontWeight: "900" },
-  planPeriod: { color: "rgba(255,255,255,0.4)", fontSize: 14, fontWeight: "normal" },
-  planFeatures: { gap: 12, marginBottom: 24 },
-  featureRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  featureText: { color: "rgba(255,255,255,0.8)", fontSize: 14 },
-  planSubscribeBtn: { width: "100%", paddingVertical: 16, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  planSubscribeBtnText: { fontSize: 14, fontWeight: "900", letterSpacing: 1 },
-  eventCountPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, alignSelf: "flex-start", borderWidth: 1, marginBottom: 12 },
-  eventCountText: { fontSize: 11, fontWeight: "900", letterSpacing: 0.5 },
   footerNote: { color: "rgba(255,255,255,0.3)", fontSize: 11, textAlign: "center", marginTop: 20, lineHeight: 16 },
-
-  // Partner CTA
-  partnerCTA: { marginBottom: 24 },
-  partnerCTAGradient: { padding: 24, borderRadius: 24, borderWidth: 1, borderColor: "rgba(251,191,36,0.2)", alignItems: "center" },
-  partnerCTAIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(251,191,36,0.15)", alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  partnerCTATitle: { color: "#fbbf24", fontSize: 18, fontWeight: "900", letterSpacing: 1, textAlign: "center", marginBottom: 8 },
-  partnerCTADescription: { color: "rgba(255,255,255,0.6)", fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 12 },
-  currentPartnerBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(34,197,94,0.1)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  currentPartnerText: { color: COLORS.success, fontSize: 12, fontWeight: "bold" },
 
   // Payment Modal
   paymentModalHeader: { height: 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.1)" },

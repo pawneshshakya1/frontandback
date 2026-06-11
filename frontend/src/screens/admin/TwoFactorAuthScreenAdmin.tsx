@@ -7,13 +7,14 @@ import {
   StatusBar,
   Switch,
   ScrollView,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePopup } from "../../components/PopupModal";
 
 export const TwoFactorAuthScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showConfirm, showSuccess, showInfo, PopupElement } = usePopup();
   const [isEnabled, setIsEnabled] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
 
@@ -21,18 +22,14 @@ export const TwoFactorAuthScreenAdmin = ({ navigation }: any) => {
     if (!isEnabled) {
       setShowSetup(true);
     } else {
-      Alert.alert(
+      showConfirm(
         "Disable 2FA?",
         "Are you sure you want to disable Two-Factor Authentication? Your account will be less secure.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Disable", onPress: () => {
-              setIsEnabled(false);
-              setShowSetup(false);
-            }, style: "destructive"
-          }
-        ]
+        () => {
+          setIsEnabled(false);
+          setShowSetup(false);
+        },
+        "Disable"
       );
     }
   };
@@ -40,7 +37,7 @@ export const TwoFactorAuthScreenAdmin = ({ navigation }: any) => {
   const handleVerify = () => {
     setIsEnabled(true);
     setShowSetup(false);
-    Alert.alert("Success", "Two-Factor Authentication has been enabled!");
+    showSuccess("Success", "Two-Factor Authentication has been enabled!");
   };
 
   return (
@@ -102,7 +99,7 @@ export const TwoFactorAuthScreenAdmin = ({ navigation }: any) => {
               <TouchableOpacity
                 style={styles.copyButton}
                 onPress={() => {
-                  Alert.alert(
+                  showInfo(
                     "Setup Key",
                     "ABCD 1234 EFGH 5678\n\nPlease write down this key or take a screenshot.",
                   );
@@ -120,6 +117,7 @@ export const TwoFactorAuthScreenAdmin = ({ navigation }: any) => {
           </View>
         )}
       </ScrollView>
+      <PopupElement />
     </View>
   );
 };
@@ -132,7 +130,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -154,7 +152,7 @@ const styles = StyleSheet.create({
     marginRight: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 40,
   },
   mainCard: {

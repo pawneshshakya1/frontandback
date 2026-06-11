@@ -8,7 +8,6 @@ import {
     StatusBar,
     ActivityIndicator,
     RefreshControl,
-    Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { COLORS, SPACING, RADIUS } from '../../theme/colors';
 import { adminAPI } from '../../services/api';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { EmptyState } from '../../components/EmptyState';
+import { usePopup } from '../../components/PopupModal';
 
 // ── Stat Card ────────────────────────────────────────────────────────────────
 const StatCard = ({
@@ -66,6 +66,7 @@ const formatCurrency = (n: number): string => {
 // ── Main Screen ───────────────────────────────────────────────────────────────
 const MatchControlScreenAdmin = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const { showConfirm, showInfo, PopupElement } = usePopup();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [matches, setMatches] = useState<any[]>([]);
@@ -111,17 +112,11 @@ const MatchControlScreenAdmin = ({ navigation }: any) => {
     };
 
     const handleEmergencyStop = () => {
-        Alert.alert(
+        showConfirm(
             "EMERGENCY STOP",
             "Are you sure you want to stop all active matches? This action cannot be undone.",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "STOP ALL",
-                    style: "destructive",
-                    onPress: () => Alert.alert("Initiated", "All active matches have been stopped.")
-                }
-            ]
+            () => showInfo("Initiated", "All active matches have been stopped."),
+            "STOP ALL"
         );
     };
 
@@ -269,6 +264,7 @@ const MatchControlScreenAdmin = ({ navigation }: any) => {
                     )}
                 </View>
             </ScrollView>
+            <PopupElement />
         </View>
     );
 };
@@ -296,7 +292,7 @@ const s = StyleSheet.create({
     // Header
     header: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingBottom: 20,
+        paddingHorizontal: 16, paddingBottom: 20,
     },
     backButton: {
         width: 40, height: 40, borderRadius: 20, backgroundColor: `${COLORS.textMuted}0D`,

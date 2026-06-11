@@ -7,7 +7,6 @@ import {
   StatusBar,
   Dimensions,
   TextInput,
-  Alert,
   ActivityIndicator,
   Modal,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { walletAPI } from '../../services/api';
 import { COLORS } from '../../theme/colors';
 import { useWalletStore } from '../../store/useWalletStore';
+import { PopupModal } from '../../components/PopupModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -45,6 +45,18 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
 
   // Success data
   const [transferResult, setTransferResult] = useState<{ amount: number; newBalance: number } | null>(null);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   useEffect(() => {
     if (!permission?.granted) {
@@ -111,11 +123,21 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
   const handleAmountContinue = () => {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount < 1) {
-      Alert.alert('Invalid Amount', 'Please enter an amount of at least ₹1');
+      setPopup({
+        visible: true,
+        type: 'warning',
+        title: 'Invalid Amount',
+        message: 'Please enter an amount of at least ₹1',
+      });
       return;
     }
     if (numAmount > 10000) {
-      Alert.alert('Limit Exceeded', 'Maximum single transfer is ₹10,000');
+      setPopup({
+        visible: true,
+        type: 'warning',
+        title: 'Limit Exceeded',
+        message: 'Maximum single transfer is ₹10,000',
+      });
       return;
     }
     setStep('pin');
@@ -123,7 +145,12 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
 
   const handlePinContinue = () => {
     if (pin.length !== 6) {
-      Alert.alert('Invalid PIN', 'PIN must be exactly 6 digits');
+      setPopup({
+        visible: true,
+        type: 'warning',
+        title: 'Invalid PIN',
+        message: 'PIN must be exactly 6 digits',
+      });
       return;
     }
     setStep('confirm');
@@ -135,7 +162,12 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
 
       const qrData = scannedQR;
       if (!qrData || !receiverInfo || !amount || !pin) {
-        Alert.alert('Error', 'Missing transfer information');
+        setPopup({
+          visible: true,
+          type: 'error',
+          title: 'Error',
+          message: 'Missing transfer information',
+        });
         return;
       }
 
@@ -150,7 +182,12 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
         }
       } catch (e) {
         console.error('[ScanPay] QR decode error in handleTransfer:', e);
-        Alert.alert('Error', 'Invalid QR data');
+        setPopup({
+          visible: true,
+          type: 'error',
+          title: 'Error',
+          message: 'Invalid QR data',
+        });
         return;
       }
 
@@ -165,7 +202,12 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
       // Refresh wallet
       // fetchWallet();
     } catch (error: any) {
-      Alert.alert('Transfer Failed', error.message || 'Please try again');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Transfer Failed',
+        message: error.message || 'Please try again',
+      });
     } finally {
       setTransferLoading(false);
     }
@@ -317,51 +359,52 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
 
   const renderConfirmView = () => (
     <Modal visible={true} transparent animationType="fade">
-      <View style={styles.modalOverlay}>
-        <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
-        <View style={styles.confirmModal}>
-          <View style={styles.confirmHeader}>
-            <MaterialCommunityIcons name="shield-check" size={48} color={COLORS.primary} />
-            <Text style={styles.confirmTitle}>Confirm Transfer</Text>
-          </View>
-
-          <View style={styles.confirmDetails}>
-            <View style={styles.confirmRow}>
-              <Text style={styles.confirmLabel}>Amount</Text>
-              <Text style={styles.confirmValue}>₹{amount}</Text>
+      <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark">
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmModal}>
+            <View style={styles.confirmHeader}>
+              <MaterialCommunityIcons name="shield-check" size={48} color={COLORS.primary} />
+              <Text style={styles.confirmTitle}>Confirm Transfer</Text>
             </View>
-            <View style={styles.confirmRow}>
-              <Text style={styles.confirmLabel}>To</Text>
-              <Text style={styles.confirmValue}>{receiverInfo?.username}</Text>
-            </View>
-            <View style={styles.confirmRow}>
-              <Text style={styles.confirmLabel}>Account</Text>
-              <Text style={styles.confirmValue}>{receiverInfo?.accountNo}</Text>
-            </View>
-          </View>
 
-          <View style={styles.confirmButtons}>
-            <TouchableOpacity
-              style={styles.cancelModalBtn}
-              onPress={() => setStep('pin')}
-            >
-              <Text style={styles.cancelModalBtnText}>CANCEL</Text>
-            </TouchableOpacity>
+            <View style={styles.confirmDetails}>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>Amount</Text>
+                <Text style={styles.confirmValue}>₹{amount}</Text>
+              </View>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>To</Text>
+                <Text style={styles.confirmValue}>{receiverInfo?.username}</Text>
+              </View>
+              <View style={styles.confirmRow}>
+                <Text style={styles.confirmLabel}>Account</Text>
+                <Text style={styles.confirmValue}>{receiverInfo?.accountNo}</Text>
+              </View>
+            </View>
 
-            <TouchableOpacity
-              style={[styles.confirmModalBtn, transferLoading && styles.confirmModalBtnDisabled]}
-              onPress={handleTransfer}
-              disabled={transferLoading}
-            >
-              {transferLoading ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text style={styles.confirmModalBtnText}>SEND ₹{amount}</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity
+                style={styles.cancelModalBtn}
+                onPress={() => setStep('pin')}
+              >
+                <Text style={styles.cancelModalBtnText}>CANCEL</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.confirmModalBtn, transferLoading && styles.confirmModalBtnDisabled]}
+                onPress={handleTransfer}
+                disabled={transferLoading}
+              >
+                {transferLoading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.confirmModalBtnText}>SEND ₹{amount}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </BlurView>
     </Modal>
   );
 
@@ -462,6 +505,15 @@ export const ScanPayScreen = ({ navigation, route }: any) => {
       )}
 
       {renderContent()}
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -613,7 +665,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    paddingHorizontal: 16,
   },
   permissionTitle: {
     color: 'white',
@@ -643,7 +695,7 @@ const styles = StyleSheet.create({
   // Content views
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 60,
     alignItems: 'center',
   },
@@ -768,7 +820,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmModal: {
-    width: width * 0.9,
+    width: width - 32,
     backgroundColor: COLORS.surface,
     borderRadius: 24,
     padding: 24,

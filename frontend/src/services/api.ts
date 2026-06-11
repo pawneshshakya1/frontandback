@@ -8,6 +8,21 @@ const api = axios.create({
   },
 });
 
+// FormData uploads (banner images etc.) must NOT carry a fixed
+// Content-Type header — the browser/RN runtime needs to set the
+// `multipart/form-data; boundary=…` itself. Without this interceptor
+// multer on the backend gets an empty `req.file` and rejects with
+// "image is required" even though the client thought it sent a file.
+api.interceptors.request.use((config) => {
+  if (config.data && typeof FormData !== "undefined" && config.data instanceof FormData) {
+    if (config.headers && typeof config.headers.delete === "function") {
+      config.headers.delete("Content-Type");
+      config.headers.delete("content-type");
+    }
+  }
+  return config;
+});
+
 export const setAuthToken = (token: string | null) => {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
@@ -250,6 +265,8 @@ export const adminAPI = {
   updateBanner: (id: string, data: any) => api.put(`/admin/banners/${id}`, data),
   deleteBanner: (id: string) => api.delete(`/admin/banners/${id}`),
   uploadBanner: (data: any) => api.post('/admin/banners/upload', data),
+  reorderBanner: (id: string, direction: "up" | "down") =>
+    api.post('/admin/banners/reorder', { id, direction }),
   createStandardEvent: (data: any) => api.post('/admin/create-standard-event', data),
   createPremiumEvent: (data: any) => api.post('/admin/create-premium-event', data),
   createSponsoredEvent: (data: any) => api.post('/admin/create-sponsored-event', data),

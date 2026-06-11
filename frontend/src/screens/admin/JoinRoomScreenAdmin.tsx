@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 12,
   },
   backButton: {
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(244,123,37,0.1)",
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 40,
   },

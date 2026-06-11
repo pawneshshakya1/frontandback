@@ -6,11 +6,11 @@ import {
   TextInput,
   TouchableOpacity,
   StatusBar,
-  Alert,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PopupModal } from '../../components/PopupModal';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,18 @@ export const CreateWalletScreen = ({ navigation, onWalletCreated }: any) => {
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const COLORS = {
     primary: '#f47b25',
@@ -35,17 +47,32 @@ export const CreateWalletScreen = ({ navigation, onWalletCreated }: any) => {
 
   const handleCreateWallet = async () => {
     if (!pin || !confirmPin) {
-      Alert.alert('Error', 'Please fill all fields');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Please fill all fields',
+      });
       return;
     }
 
     if (pin.length !== 6) {
-      Alert.alert('Error', 'PIN must be exactly 6 digits');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'PIN must be exactly 6 digits',
+      });
       return;
     }
 
     if (pin !== confirmPin) {
-      Alert.alert('Error', 'PINs do not match');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'PINs do not match',
+      });
       return;
     }
 
@@ -60,43 +87,53 @@ export const CreateWalletScreen = ({ navigation, onWalletCreated }: any) => {
         // Update auth context to reflect wallet initialization
         await updateAuthData({ is_wallet_initialized: true });
 
-        Alert.alert(
-          'Success!',
-          `Wallet created successfully!\n\nYour Wallet Account Number:\n${response.data.data.wallet_account_no}`,
-          [
+        setPopup({
+          visible: true,
+          type: 'success',
+          title: 'Success!',
+          message: `Wallet created successfully!\n\nYour Wallet Account Number:\n${response.data.data.wallet_account_no}`,
+          buttons: [
             {
               text: 'OK',
               onPress: () => {
+                setPopup((prev) => ({ ...prev, visible: false }));
                 if (onWalletCreated) {
                   onWalletCreated();
                 }
               },
             },
-          ]
-        );
+          ],
+        });
       }
     } catch (error: any) {
       console.error('Wallet creation error:', error);
       console.error('Error response:', error.response?.data);
 
       if (error.response?.status === 401) {
-        Alert.alert(
-          'Session Expired',
-          'Your session is invalid or expired. Please login again.',
-          [
+        setPopup({
+          visible: true,
+          type: 'error',
+          title: 'Session Expired',
+          message: 'Your session is invalid or expired. Please login again.',
+          buttons: [
             {
               text: 'OK',
-              onPress: () => signOut(),
+              onPress: () => {
+                setPopup((prev) => ({ ...prev, visible: false }));
+                signOut();
+              },
             },
-          ]
-        );
+          ],
+        });
         return;
       }
 
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || error.message || 'Failed to create wallet'
-      );
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: error.response?.data?.message || error.message || 'Failed to create wallet',
+      });
     } finally {
       setLoading(false);
     }
@@ -311,6 +348,14 @@ export const CreateWalletScreen = ({ navigation, onWalletCreated }: any) => {
           },
         ]}
       />
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -344,7 +389,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   header: {
     alignItems: 'center',

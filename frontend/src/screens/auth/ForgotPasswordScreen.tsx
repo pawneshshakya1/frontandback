@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
         color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '500', lineHeight: 18, letterSpacing: 0.5, textAlign: 'center', marginBottom: 16,
     },
     formGap: {
-        gap: 14,
+        gap: 16,
     },
     inputGroup: {
         gap: 6,

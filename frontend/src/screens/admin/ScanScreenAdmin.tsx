@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   },
   permissionButton: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
   },
@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     zIndex: 10,
   },
   iconButtonSmall: {
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   controls: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     gap: 24,
   },
   controlRowMain: {

@@ -10,7 +10,6 @@ import {
   Dimensions,
   StatusBar,
   Switch,
-  Alert,
   ActivityIndicator,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -20,6 +19,7 @@ import { useAuth } from "../../context/AuthContext";
 import { adminAPI } from "../../services/api";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from "expo-constants";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 const isExpoGo = Constants.executionEnvironment === "storeClient";
@@ -32,6 +32,18 @@ export const SettingsScreen = ({ navigation }: any) => {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [enablingPush, setEnablingPush] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const COLORS = {
     primary: "#f47b25",
@@ -128,16 +140,40 @@ export const SettingsScreen = ({ navigation }: any) => {
             iconBg="rgba(37,99,235,0.1)"
             iconColor={COLORS.accentBlue}
             onPress={async () => {
-              Alert.alert(
-                'Graphics Quality',
-                'Select graphics quality level',
-                [
-                  { text: 'Low', onPress: async () => { await AsyncStorage.setItem('graphicsQuality', 'Low'); Alert.alert('Saved', 'Graphics set to Low'); } },
-                  { text: 'Medium', onPress: async () => { await AsyncStorage.setItem('graphicsQuality', 'Medium'); Alert.alert('Saved', 'Graphics set to Medium'); } },
-                  { text: 'High', onPress: async () => { await AsyncStorage.setItem('graphicsQuality', 'High'); Alert.alert('Saved', 'Graphics set to High'); } },
-                  { text: 'Cancel', style: 'cancel' },
+              setPopup({
+                visible: true,
+                type: 'info',
+                title: 'Graphics Quality',
+                message: 'Select graphics quality level',
+                buttons: [
+                  { 
+                    text: 'Low', 
+                    onPress: async () => { 
+                      await AsyncStorage.setItem('graphicsQuality', 'Low'); 
+                      setPopup({ visible: true, type: 'success', title: 'Saved', message: 'Graphics set to Low' }); 
+                    } 
+                  },
+                  { 
+                    text: 'Medium', 
+                    onPress: async () => { 
+                      await AsyncStorage.setItem('graphicsQuality', 'Medium'); 
+                      setPopup({ visible: true, type: 'success', title: 'Saved', message: 'Graphics set to Medium' }); 
+                    } 
+                  },
+                  { 
+                    text: 'High', 
+                    onPress: async () => { 
+                      await AsyncStorage.setItem('graphicsQuality', 'High'); 
+                      setPopup({ visible: true, type: 'success', title: 'Saved', message: 'Graphics set to High' }); 
+                    } 
+                  },
+                  { 
+                    text: 'Cancel', 
+                    onPress: () => setPopup(prev => ({ ...prev, visible: false })), 
+                    style: 'ghost' 
+                  },
                 ]
-              );
+              });
             }} 
           />
           <View style={styles.divider} />
@@ -146,7 +182,12 @@ export const SettingsScreen = ({ navigation }: any) => {
             title="Sound & Music" 
             iconBg="rgba(37,99,235,0.1)"
             iconColor={COLORS.accentBlue}
-            onPress={() => Alert.alert("Sound Settings", "Adjust SFX and Music volume.")} 
+            onPress={() => setPopup({
+              visible: true,
+              type: 'info',
+              title: "Sound Settings",
+              message: "Adjust SFX and Music volume."
+            })} 
           />
           <View style={styles.divider} />
           <SettingItem 
@@ -157,23 +198,39 @@ export const SettingsScreen = ({ navigation }: any) => {
             rightElement={isExpoGo ? "none" : "chevron"}
             onPress={async () => {
               if (isExpoGo) {
-                Alert.alert(
-                  "Dev Build Required",
-                  "Push notifications require a development build.\n\nRun:\nnpx expo prebuild\nnpx expo run:android",
-                  [{ text: "OK" }]
-                );
+                setPopup({
+                  visible: true,
+                  type: 'warning',
+                  title: "Dev Build Required",
+                  message: "Push notifications require a development build.\n\nRun:\nnpx expo prebuild\nnpx expo run:android",
+                });
                 return;
               }
               setEnablingPush(true);
               try {
                 const success = await registerPushToken();
                 if (success) {
-                  Alert.alert("Success", "Push notifications enabled! You will now receive notifications.");
+                  setPopup({
+                    visible: true,
+                    type: 'success',
+                    title: "Success",
+                    message: "Push notifications enabled! You will now receive notifications.",
+                  });
                 } else {
-                  Alert.alert("Permission Denied", "Please allow notification permission in your device settings.");
+                  setPopup({
+                    visible: true,
+                    type: 'error',
+                    title: "Permission Denied",
+                    message: "Please allow notification permission in your device settings.",
+                  });
                 }
               } catch (err) {
-                Alert.alert("Error", "Failed to enable push notifications.");
+                setPopup({
+                  visible: true,
+                  type: 'error',
+                  title: "Error",
+                  message: "Failed to enable push notifications.",
+                });
               } finally {
                 setEnablingPush(false);
               }
@@ -228,7 +285,7 @@ export const SettingsScreen = ({ navigation }: any) => {
         onRequestClose={() => setShowDeleteModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <View style={styles.warningIconContainer}>
               <MaterialIcons name="warning" size={40} color={COLORS.danger} />
@@ -258,9 +315,14 @@ export const SettingsScreen = ({ navigation }: any) => {
                   deleteConfirmation !== "DELETE" && { opacity: 0.5 }
                 ]}
                 disabled={deleteConfirmation !== "DELETE" || isDeleting}
-                onPress={async () => {
+                 onPress={async () => {
                   if (!authData?.id) {
-                    Alert.alert('Error', 'User ID not found');
+                    setPopup({
+                      visible: true,
+                      type: 'error',
+                      title: 'Error',
+                      message: 'User ID not found',
+                    });
                     return;
                   }
                   setIsDeleting(true);
@@ -270,7 +332,12 @@ export const SettingsScreen = ({ navigation }: any) => {
                     setShowDeleteModal(false);
                     navigation.navigate("Login");
                   } catch (e: any) {
-                    Alert.alert('Error', e.response?.data?.message || 'Failed to delete account');
+                    setPopup({
+                      visible: true,
+                      type: 'error',
+                      title: 'Error',
+                      message: e.response?.data?.message || 'Failed to delete account',
+                    });
                   } finally {
                     setIsDeleting(false);
                   }
@@ -296,6 +363,15 @@ export const SettingsScreen = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -308,7 +384,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -331,7 +407,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     marginTop: 32,
   },
   sectionTitle: {
@@ -396,17 +472,16 @@ const styles = StyleSheet.create({
   },
   dangerDesc: {
     marginTop: 12,
-    paddingHorizontal: 28,
+    paddingHorizontal: 16,
     fontSize: 11,
     color: "rgba(255,255,255,0.3)",
     lineHeight: 18,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.85)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    paddingHorizontal: 16,
   },
   modalContent: {
     width: "100%",

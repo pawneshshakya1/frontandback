@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   TextInput,
   Modal,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,11 +18,13 @@ import { BlurView } from "expo-blur";
 import { useFocusEffect } from "@react-navigation/native";
 import { adminAPI } from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const WalletManagementScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showWarning, showSuccess, showError, PopupElement } = usePopup();
   const [wallets, setWallets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,7 +64,7 @@ export const WalletManagementScreenAdmin = ({ navigation }: any) => {
 
   const handleAdjust = async () => {
     if (!adjustModal.amount || parseFloat(adjustModal.amount) <= 0) {
-      Alert.alert("Invalid", "Enter a valid amount");
+      showWarning("Invalid", "Enter a valid amount");
       return;
     }
     setAdjusting(true);
@@ -74,10 +75,10 @@ export const WalletManagementScreenAdmin = ({ navigation }: any) => {
         reason: adjustModal.reason || "Admin adjustment",
       });
       setAdjustModal({ visible: false, walletId: "", username: "", type: "CREDIT", amount: "", reason: "" });
-      Alert.alert("Success", "Wallet balance adjusted");
+      showSuccess("Success", "Wallet balance adjusted");
       loadWallets(1, false);
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || "Failed");
+      showError("Error", err.response?.data?.message || "Failed");
     } finally {
       setAdjusting(false);
     }
@@ -204,6 +205,7 @@ export const WalletManagementScreenAdmin = ({ navigation }: any) => {
       {/* Adjust Modal */}
       <Modal visible={adjustModal.visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Adjust Balance — {adjustModal.username}</Text>
             <View style={styles.typeRow}>
@@ -227,6 +229,7 @@ export const WalletManagementScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
   emptyText: { color: "rgba(255,255,255,0.3)", fontSize: 14, marginTop: 12 },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 },
+  modalOverlay: { flex: 1, justifyContent: "center", padding: 16 },
   modalContent: { backgroundColor: COLORS.surface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   modalTitle: { color: "white", fontSize: 18, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
   typeRow: { flexDirection: "row", gap: 10, marginBottom: 16 },

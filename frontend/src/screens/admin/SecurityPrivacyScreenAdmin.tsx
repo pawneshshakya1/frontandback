@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   StatusBar,
-  Alert,
   Modal,
   TextInput,
   Dimensions,
@@ -14,6 +13,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -21,6 +21,7 @@ export const SecurityPrivacyScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const { showSuccess, PopupElement } = usePopup();
 
   const COLORS = {
     primary: "#f47b25",
@@ -62,7 +63,7 @@ export const SecurityPrivacyScreenAdmin = ({ navigation }: any) => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
       >
         <Text style={styles.sectionTitle}>ACCOUNT PROTECTION</Text>
         <View style={styles.card}>
@@ -171,7 +172,7 @@ export const SecurityPrivacyScreenAdmin = ({ navigation }: any) => {
                 ]}
                 disabled={deleteConfirmation !== "DELETE"}
                 onPress={() => {
-                  Alert.alert("Account Deleted", "Your account has been permanently removed.");
+                  showSuccess("Account Deleted", "Your account has been permanently removed.");
                   setShowDeleteModal(false);
                   navigation.navigate("Login");
                 }}
@@ -192,6 +193,7 @@ export const SecurityPrivacyScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {

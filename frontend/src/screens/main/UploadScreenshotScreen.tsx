@@ -7,7 +7,6 @@ import {
     Image,
     ScrollView,
     TextInput,
-    Alert,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
@@ -19,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import api, { matchAPI } from '../../services/api';
+import { PopupModal } from "../../components/PopupModal";
 
 export const UploadScreenshotScreen = ({ navigation, route }: any) => {
     const insets = useSafeAreaInsets();
@@ -33,6 +33,18 @@ export const UploadScreenshotScreen = ({ navigation, route }: any) => {
     const [loading, setLoading] = useState(!initialMatch);
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
     const [mode, setMode] = useState<'participant' | 'host'>(initialMatch ? 'participant' : 'host');
+    const [popup, setPopup] = useState<{
+        visible: boolean;
+        type: 'success' | 'error' | 'warning' | 'info';
+        title: string;
+        message: string;
+        buttons?: any[];
+    }>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+    });
 
     const COLORS = {
         primary: "#f47b25",
@@ -59,7 +71,12 @@ export const UploadScreenshotScreen = ({ navigation, route }: any) => {
             const remaining = Math.max(0, Math.floor((deadline.getTime() - Date.now()) / 1000));
             setTimeLeft(remaining);
             if (remaining <= 0) {
-                Alert.alert("Time's Up!", "The 2-minute upload window has closed. You can no longer submit results.");
+                setPopup({
+                    visible: true,
+                    type: 'warning',
+                    title: "Time's Up!",
+                    message: "The 2-minute upload window has closed. You can no longer submit results.",
+                });
                 setTimeout(() => navigation.goBack(), 1500);
             }
         };
@@ -96,9 +113,33 @@ export const UploadScreenshotScreen = ({ navigation, route }: any) => {
     };
 
     const handleSubmit = async () => {
-        if (!selectedMatch) return Alert.alert("Required", "Please select a match.");
-        if (!image) return Alert.alert("Required", "Please upload a screenshot.");
-        if (!kills) return Alert.alert("Required", "Please enter your kill count.");
+        if (!selectedMatch) {
+            setPopup({
+                visible: true,
+                type: 'warning',
+                title: "Required",
+                message: "Please select a match.",
+            });
+            return;
+        }
+        if (!image) {
+            setPopup({
+                visible: true,
+                type: 'warning',
+                title: "Required",
+                message: "Please upload a screenshot.",
+            });
+            return;
+        }
+        if (!kills) {
+            setPopup({
+                visible: true,
+                type: 'warning',
+                title: "Required",
+                message: "Please enter your kill count.",
+            });
+            return;
+        }
 
         try {
             setSubmitting(true);
@@ -112,11 +153,22 @@ export const UploadScreenshotScreen = ({ navigation, route }: any) => {
                 screenshot_urls: [screenshotUrl],
             });
 
-            Alert.alert("Submitted!", "Your result has been submitted. The mediator will review and declare the winner.", [
-                { text: "OK", onPress: () => navigation.goBack() }
-            ]);
+            setPopup({
+                visible: true,
+                type: 'success',
+                title: "Submitted!",
+                message: "Your result has been submitted. The mediator will review and declare the winner.",
+                buttons: [
+                    { text: "OK", onPress: () => navigation.goBack() }
+                ]
+            });
         } catch (error: any) {
-            Alert.alert("Error", error.response?.data?.message || "Failed to submit result.");
+            setPopup({
+                visible: true,
+                type: 'error',
+                title: "Error",
+                message: error.response?.data?.message || "Failed to submit result.",
+            });
         } finally {
             setSubmitting(false);
         }
@@ -324,6 +376,15 @@ export const UploadScreenshotScreen = ({ navigation, route }: any) => {
                     </TouchableOpacity>
                 </BlurView>
             </KeyboardAvoidingView>
+
+            <PopupModal
+                visible={popup.visible}
+                type={popup.type}
+                title={popup.title}
+                message={popup.message}
+                buttons={popup.buttons}
+                onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
@@ -356,7 +417,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         paddingBottom: 12,
     },
     backBtn: {
@@ -376,7 +437,8 @@ const styles = StyleSheet.create({
         color: "white",
     },
     content: {
-        padding: 24,
+        paddingHorizontal: 16,
+        paddingVertical: 24,
     },
     sectionTitle: {
         color: 'rgba(255,255,255,0.5)',
@@ -488,7 +550,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingTop: 20,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.1)',

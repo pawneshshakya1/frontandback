@@ -8,7 +8,6 @@ import {
   StatusBar,
   TextInput,
   Dimensions,
-  Alert,
   Modal,
   ActivityIndicator
 } from "react-native";
@@ -60,7 +59,7 @@ export const AddCashScreen = ({ navigation }: any) => {
 
   const handleProceed = async () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount to add.");
+      setPopup({ visible: true, type: "warning", title: "Invalid Amount", message: "Please enter a valid amount to add." });
       return;
     }
 
@@ -73,10 +72,10 @@ export const AddCashScreen = ({ navigation }: any) => {
         setCurrentOrderId(res.data.data.order_id);
         setShowPaymentModal(true);
       } else {
-        Alert.alert("Error", "Failed to initiate payment session");
+        setPopup({ visible: true, type: "error", title: "Error", message: "Failed to initiate payment session" });
       }
     } catch (error: any) {
-      Alert.alert("Error", error.response?.data?.message || "Failed to initiate payment");
+      setPopup({ visible: true, type: "error", title: "Error", message: error.response?.data?.message || "Failed to initiate payment" });
     } finally {
       setLoading(false);
     }

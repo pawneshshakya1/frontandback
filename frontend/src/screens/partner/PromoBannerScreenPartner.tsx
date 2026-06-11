@@ -10,15 +10,16 @@ import {
     Modal,
     Switch,
     Image,
-    Alert,
     ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import api from "../../services/api";
 import * as ImagePicker from "expo-image-picker";
 import EventSource, { EventSourceListener } from "react-native-sse";
+import { PopupModal } from "../../components/PopupModal";
 
 const COLORS = {
     primary: "#f47b25",
@@ -32,6 +33,19 @@ const COLORS = {
 
 export const PromoBannerScreenPartner = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const [popup, setPopup] = useState({ visible: false, type: "info" as "success" | "error" | "warning" | "info" | "confirm", title: "", message: "" });
+    const [confirmAction, setConfirmAction] = useState<(() => void) | null>(null);
+
+    const showPopup = (type: "success" | "error" | "warning" | "info" | "confirm", title: string, message?: string, onConfirm?: () => void) => {
+        setPopup({ visible: true, type, title, message: message || "" });
+        setConfirmAction(() => onConfirm || null);
+    };
+
+    const hidePopup = () => {
+        setPopup({ ...popup, visible: false });
+        setConfirmAction(null);
+    };
+
     const [banners, setBanners] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -150,9 +164,10 @@ export const PromoBannerScreenPartner = ({ navigation }: any) => {
         try {
             const hasUrl = Boolean(bannerForm.image_url);
             if (!bannerForm.title || !bannerForm.description || !hasUrl) {
-                Alert.alert(
+                showPopup(
+                    "warning",
                     "Validation",
-                    "Title, description, and image (URL or upload) are required.",
+                    "Title, description, and image (URL or upload) are required."
                 );
                 return;
             }
@@ -161,34 +176,33 @@ export const PromoBannerScreenPartner = ({ navigation }: any) => {
                 display_order: Number(bannerForm.display_order || 0),
             };
             await api.post("/admin/banners", payload);
-            Alert.alert("Success", "Promotional banner added.");
+            showPopup("success", "Success", "Promotional banner added.");
             setShowModal(false);
             resetBannerForm();
             fetchBanners();
         } catch (e: any) {
-            Alert.alert(
+            showPopup(
+                "error",
                 "Error",
-                e?.response?.data?.message || "Failed to upload banner.",
+                e?.response?.data?.message || "Failed to upload banner."
             );
         }
     };
 
     const handleDeleteBanner = async (id: string) => {
-        Alert.alert("Confirm Delete", "Are you sure you want to delete this banner?", [
-            { text: "Cancel", style: "cancel" },
-            {
-                text: "Delete",
-                style: "destructive",
-                onPress: async () => {
-                    try {
-                        await api.delete(`/admin/banners/${id}`);
-                        fetchBanners();
-                    } catch (e) {
-                        Alert.alert("Error", "Failed to delete banner");
-                    }
-                },
-            },
-        ]);
+        showPopup(
+            "confirm",
+            "Confirm Delete",
+            "Are you sure you want to delete this banner?",
+            async () => {
+                try {
+                    await api.delete(`/admin/banners/${id}`);
+                    fetchBanners();
+                } catch (e) {
+                    showPopup("error", "Error", "Failed to delete banner");
+                }
+            }
+        );
     };
 
     const handleUpdateStatus = async (id: string, currentStatus: boolean) => {
@@ -197,7 +211,7 @@ export const PromoBannerScreenPartner = ({ navigation }: any) => {
             setBanners(prev => prev.map(b => b._id === id ? { ...b, is_active: !currentStatus } : b));
             await api.put(`/admin/banners/${id}`, { is_active: !currentStatus });
         } catch (e) {
-            Alert.alert("Error", "Failed to update status");
+            showPopup("error", "Error", "Failed to update status");
             fetchBanners(); // revert on error
         }
     };

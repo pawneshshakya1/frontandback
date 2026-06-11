@@ -58,6 +58,7 @@ router.post("/banners/upload", upload.single("image"), (req, res) => {
 });
 router.put("/banners/:id", adminController.updateBanner);
 router.delete("/banners/:id", adminController.deleteBanner);
+router.post("/banners/reorder", adminController.reorderBanner);
 router.post("/create-sponsored-event", adminController.createSponsoredEvent);
 router.post("/create-standard-event", adminController.createStandardEvent);
 router.post("/create-premium-event", adminController.createPremiumEvent);

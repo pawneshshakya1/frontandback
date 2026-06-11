@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   bottomSection: {
     width: '100%',
     maxWidth: 400,
-    paddingHorizontal: 32,
+    paddingHorizontal: 16,
     paddingBottom: 64,
     gap: 24,
     zIndex: 10,

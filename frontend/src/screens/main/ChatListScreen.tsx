@@ -276,7 +276,7 @@ export const ChatListScreen = ({ navigation }: any) => {
       {/* My QR modal */}
       <Modal visible={showMyQr} transparent animationType="fade" onRequestClose={() => setShowMyQr(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setShowMyQr(false)}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
         </Pressable>
         <View pointerEvents="box-none" style={styles.modalWrapper}>
           <View style={styles.qrCard}>
@@ -433,7 +433,7 @@ const AddFriendModal = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.modalBackdrop} onPress={onClose}>
-        <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
       </Pressable>
       <View pointerEvents="box-none" style={styles.modalWrapper}>
         <View style={[styles.modalCard, { maxHeight: "85%" }]}>

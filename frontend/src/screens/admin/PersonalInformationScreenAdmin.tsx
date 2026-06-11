@@ -14,7 +14,7 @@ import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import * as ImagePicker from 'expo-image-picker';
-import { Modal, ActivityIndicator, ImageBackground } from "react-native";
+import { ActivityIndicator, ImageBackground } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import api from "../../services/api";
 import { usePopup } from "../../components/PopupModal";
@@ -48,7 +48,6 @@ export const PersonalInformationScreenAdmin = ({ navigation }: any) => {
   });
   const [avatar, setAvatar] = useState<string | null>(null);
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
-  const [isOtpModalVisible, setIsOtpModalVisible] = useState(false);
   const [otpValue, setOtpValue] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isLoading, setIsLoading] = useState(true);

@@ -11,14 +11,15 @@ import {
   Platform,
   RefreshControl,
   Image,
-  Alert,
   Linking,
+  Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { supportAPI } from '../../services/api';
 import { SafeScreen } from '../../components/SafeScreen';
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -65,6 +66,7 @@ export const HelpConversationScreen = ({ navigation, route }: any) => {
   const [isInternalNote, setIsInternalNote] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<{ uri: string; name: string; type: string; size?: number; mime?: string }[]>([]);
   const [pickingFile, setPickingFile] = useState(false);
+  const [attachVisible, setAttachVisible] = useState(false);
   const [popup, setPopup] = useState<{ visible: boolean; type: 'success' | 'error' | 'info'; title: string; message: string }>({
     visible: false, type: 'info', title: '', message: '',
   });
@@ -209,17 +211,7 @@ export const HelpConversationScreen = ({ navigation, route }: any) => {
   };
 
   const handleAttach = () => {
-    Alert.alert(
-      'Attach File',
-      'Choose source',
-      [
-        { text: 'Take Photo', onPress: () => handlePickImage(true) },
-        { text: 'Photo Library', onPress: () => handlePickImage(false) },
-        { text: 'Document', onPress: handlePickDocument },
-        { text: 'Cancel', style: 'cancel' },
-      ],
-      { cancelable: true }
-    );
+    setAttachVisible(true);
   };
 
   const removeAttachment = (idx: number) => {
@@ -476,6 +468,63 @@ export const HelpConversationScreen = ({ navigation, route }: any) => {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={attachVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAttachVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>ATTACH FILE</Text>
+            <Text style={styles.modalSubtitle}>Choose a source for your attachment</Text>
+            
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setAttachVisible(false);
+                  handlePickImage(true);
+                }}
+              >
+                <MaterialIcons name="photo-camera" size={24} color={COLORS.primary} />
+                <Text style={styles.modalButtonText}>Take Photo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setAttachVisible(false);
+                  handlePickImage(false);
+                }}
+              >
+                <MaterialIcons name="photo-library" size={24} color={COLORS.primary} />
+                <Text style={styles.modalButtonText}>Photo Library</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setAttachVisible(false);
+                  handlePickDocument();
+                }}
+              >
+                <MaterialIcons name="insert-drive-file" size={24} color={COLORS.primary} />
+                <Text style={styles.modalButtonText}>Document</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setAttachVisible(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <PopupModal
         visible={popup.visible}
@@ -901,4 +950,72 @@ const styles = StyleSheet.create({
   },
   bubbleFileName: { color: 'white', fontSize: 12, fontWeight: '700' },
   bubbleFileAction: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '600', marginTop: 1 },
+
+  // Custom modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+    marginBottom: 6,
+    letterSpacing: 1,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  modalButtonsContainer: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalCancelButton: {
+    width: '100%',
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  modalCancelButtonText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
 });

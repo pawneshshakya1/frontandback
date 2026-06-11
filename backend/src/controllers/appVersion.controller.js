@@ -1,6 +1,9 @@
 const AppVersionConfig = require('../models/appVersionConfig.model');
 const STATUS_CODES = require('../utils/statusCodes');
 const { compareVersions } = require('../utils/semver');
+const cache = require('../utils/cache');
+
+const VERSION_CACHE_TTL = 300;
 
 const getVersionStatus = async (req, res) => {
   try {
@@ -10,6 +13,12 @@ const getVersionStatus = async (req, res) => {
       return res
         .status(STATUS_CODES.BAD_REQUEST)
         .json({ success: false, message: 'platform and appVersion are required' });
+    }
+
+    const cacheKey = `appversion:status:${platform}:${appVersion}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return res.json(cached);
     }
 
     const config = await AppVersionConfig.findOne({ platform: platform.toLowerCase() });
@@ -22,37 +31,40 @@ const getVersionStatus = async (req, res) => {
     const isSupported =
       compareVersions(appVersion, config.minSupportedVersion) >= 0;
 
+    let response;
     if (isSupported) {
-      return res.json({
+      response = {
         status: 'OK',
         latestVersion: config.latestVersion,
         message: config.message,
-      });
+      };
+    } else {
+      const graceDeadline = new Date(config.updatedAt);
+      graceDeadline.setDate(graceDeadline.getDate() + config.graceDays);
+      const graceActive = Date.now() <= graceDeadline.getTime();
+
+      if (!config.forceUpdate && graceActive) {
+        response = {
+          status: 'WARNING',
+          latestVersion: config.latestVersion,
+          minSupportedVersion: config.minSupportedVersion,
+          graceDays: config.graceDays,
+          message: config.message,
+          storeUrl: config.storeUrl,
+        };
+      } else {
+        response = {
+          status: 'FORCE_UPDATE',
+          latestVersion: config.latestVersion,
+          minSupportedVersion: config.minSupportedVersion,
+          message: config.message,
+          storeUrl: config.storeUrl,
+        };
+      }
     }
 
-    // Use the last config update time as the start of the grace window.
-    const graceDeadline = new Date(config.updatedAt);
-    graceDeadline.setDate(graceDeadline.getDate() + config.graceDays);
-    const graceActive = Date.now() <= graceDeadline.getTime();
-
-    if (!config.forceUpdate && graceActive) {
-      return res.json({
-        status: 'WARNING',
-        latestVersion: config.latestVersion,
-        minSupportedVersion: config.minSupportedVersion,
-        graceDays: config.graceDays,
-        message: config.message,
-        storeUrl: config.storeUrl,
-      });
-    }
-
-    return res.json({
-      status: 'FORCE_UPDATE',
-      latestVersion: config.latestVersion,
-      minSupportedVersion: config.minSupportedVersion,
-      message: config.message,
-      storeUrl: config.storeUrl,
-    });
+    await cache.set(cacheKey, response, VERSION_CACHE_TTL);
+    return res.json(response);
   } catch (error) {
     return res
       .status(STATUS_CODES.SERVER_ERROR)
@@ -93,6 +105,10 @@ const upsertVersionConfig = async (req, res) => {
       { new: true, upsert: true, runValidators: true },
     );
 
+    await cache.del(`appversion:config:${platform.toLowerCase()}`);
+    await cache.del('appversion:config:all');
+    await cache.delPattern(`appversion:status:${platform.toLowerCase()}:*`);
+
     return res.json({ success: true, data: updatedConfig });
   } catch (error) {
     return res
@@ -104,13 +120,20 @@ const upsertVersionConfig = async (req, res) => {
 const getVersionConfig = async (req, res) => {
   try {
     const { platform } = req.query;
+    const cacheKey = platform
+      ? `appversion:config:${platform.toLowerCase()}`
+      : 'appversion:config:all';
 
-    // If no platform specified, return all configs (for admin settings screen)
+    const cached = await cache.get(cacheKey);
+    if (cached) {
+      return res.json({ success: true, data: cached });
+    }
+
+    let result;
     if (!platform) {
       const configs = await AppVersionConfig.find({}).sort({ platform: 1 });
-      
-      // Format as object with platform keys for frontend
-      const result = {};
+
+      result = {};
       configs.forEach(c => {
         result[c.platform] = {
           latestVersion: c.latestVersion,
@@ -123,37 +146,35 @@ const getVersionConfig = async (req, res) => {
         };
       });
 
-      // Also add flat fields for admin screen compatibility
       const androidConfig = configs.find(c => c.platform === 'android');
       const iosConfig = configs.find(c => c.platform === 'ios');
 
-      return res.json({
-        success: true,
-        data: {
-          android_version: androidConfig?.latestVersion || '',
-          ios_version: iosConfig?.latestVersion || '',
-          min_android_version: androidConfig?.minSupportedVersion || '',
-          platform_fee: 1,
-          min_withdrawal: 100,
-          joining_bonus: 0,
-          referral_bonus: 0,
-          platforms: result,
-        },
+      result = {
+        android_version: androidConfig?.latestVersion || '',
+        ios_version: iosConfig?.latestVersion || '',
+        min_android_version: androidConfig?.minSupportedVersion || '',
+        platform_fee: 1,
+        min_withdrawal: 100,
+        joining_bonus: 0,
+        referral_bonus: 0,
+        platforms: result,
+      };
+    } else {
+      const config = await AppVersionConfig.findOne({
+        platform: platform.toLowerCase(),
       });
+
+      if (!config) {
+        return res
+          .status(STATUS_CODES.NOT_FOUND)
+          .json({ success: false, message: 'App version config not found' });
+      }
+
+      result = config;
     }
 
-    // Platform specified - return single config
-    const config = await AppVersionConfig.findOne({
-      platform: platform.toLowerCase(),
-    });
-
-    if (!config) {
-      return res
-        .status(STATUS_CODES.NOT_FOUND)
-        .json({ success: false, message: 'App version config not found' });
-    }
-
-    return res.json({ success: true, data: config });
+    await cache.set(cacheKey, result, VERSION_CACHE_TTL);
+    return res.json({ success: true, data: result });
   } catch (error) {
     return res
       .status(STATUS_CODES.SERVER_ERROR)

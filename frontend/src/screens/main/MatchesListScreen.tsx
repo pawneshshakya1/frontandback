@@ -10,13 +10,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from '@react-navigation/native';
 import api from "../../services/api";
+import { PopupModal } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -29,13 +29,31 @@ export const MatchesListScreen = ({ navigation }: any) => {
 
   const categories = ["All", "Battle Royale", "Deathmatch", "Search & Destroy"];
 
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
   const fetchMatches = async () => {
     try {
       const res = await api.get('/matches');
       setMatches(res.data.data || res.data); // Handle potential response structure diffs
     } catch (err) {
       console.error("Failed to fetch matches", err);
-      Alert.alert('Error', 'Failed to load matches');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to load matches',
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -102,7 +120,7 @@ export const MatchesListScreen = ({ navigation }: any) => {
       </View>
 
       <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
           {categories.map((cat) => (
             <TouchableOpacity
               key={cat}
@@ -122,7 +140,7 @@ export const MatchesListScreen = ({ navigation }: any) => {
       ) : (
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f47b25" />}
         >
           {filteredMatches.length > 0 ? filteredMatches.map((item, index) => (
@@ -171,6 +189,15 @@ export const MatchesListScreen = ({ navigation }: any) => {
           )}
         </ScrollView>
       )}
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -184,7 +211,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 12,
   },
   backButton: {

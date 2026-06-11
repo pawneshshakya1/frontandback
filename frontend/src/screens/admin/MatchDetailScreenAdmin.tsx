@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
   StatusBar,
   ScrollView,
   ImageBackground,
@@ -29,6 +28,7 @@ import { useMatchPolling } from '../../hooks/useMatchPolling';
 import { CountdownTimer } from '../../components/CountdownTimer';
 import { sseService } from '../../services/sse';
 import { useAuthStore } from '../../store/useAuthStore';
+import { usePopup } from '../../components/PopupModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -48,6 +48,7 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
 
   const [user, setUser] = useState<any>(null);
   const { token } = useAuthStore();
+  const { showSuccess, showError, showConfirm, PopupElement } = usePopup();
 
   // SSE integration for live updates
   useEffect(() => {
@@ -125,10 +126,10 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
   const handleJoin = async () => {
     try {
       await api.post('/matches/join', { roomId: match.room_id });
-      Alert.alert('Success!', 'You have successfully joined the match.');
+      showSuccess('Success!', 'You have successfully joined the match.');
       fetchMatch();
     } catch (error: any) {
-      Alert.alert('Join Failed', error.response?.data?.message || 'Error joining match.');
+      showError('Join Failed', error.response?.data?.message || 'Error joining match.');
     }
   };
 
@@ -154,7 +155,7 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
 
   const handleRoomConfirm = async () => {
     if (!roomModalData.roomId.trim()) {
-      Alert.alert("Room ID Required", "Please enter the in-game Room ID.");
+      showError("Room ID Required", "Please enter the in-game Room ID.");
       return;
     }
     setRoomModalData(prev => ({ ...prev, loading: true }));
@@ -165,18 +166,18 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
       if (roomModalData.roomPassword.trim()) {
         payload.room_password = roomModalData.roomPassword.trim();
       }
-      
+
       if (roomModalMode === 'add') {
         await adminAPI.addRoomDetails(match._id, payload);
-        Alert.alert("Success", "Room details added! Participants have been notified.");
+        showSuccess("Success", "Room details added! Participants have been notified.");
       } else {
         await adminAPI.updateRoomDetails(match._id, payload);
-        Alert.alert("Success", "Room details updated! Participants have been notified.");
+        showSuccess("Success", "Room details updated! Participants have been notified.");
       }
       setShowRoomModal(false);
       fetchMatch();
     } catch (e: any) {
-      Alert.alert("Error", e.response?.data?.message || e.message);
+      showError("Error", e.response?.data?.message || e.message);
     } finally {
       setRoomModalData(prev => ({ ...prev, loading: false }));
     }
@@ -184,43 +185,33 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
 
   const handleDelete = async () => {
     if (match.status !== 'DRAFT') {
-      Alert.alert("Error", "Only draft events can be deleted.");
+      showError("Error", "Only draft events can be deleted.");
       return;
     }
-    Alert.alert("Delete Match", "Are you sure you want to delete this draft?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete", style: "destructive", onPress: async () => {
-          try {
-            await adminAPI.deleteMatch(match._id, { force: "true" });
-            navigation.goBack();
-          } catch (e: any) { Alert.alert("Error", e.response?.data?.message || e.message); }
-        }
-      }
-    ]);
+    showConfirm("Delete Match", "Are you sure you want to delete this draft?", async () => {
+      try {
+        await adminAPI.deleteMatch(match._id, { force: "true" });
+        navigation.goBack();
+      } catch (e: any) { showError("Error", e.response?.data?.message || e.message); }
+    }, "Delete");
   };
 
   const handlePublish = async () => {
     try {
       await adminAPI.togglePublish(match._id);
-      Alert.alert("Success", "Event is now live! All users have been notified.");
+      showSuccess("Success", "Event is now live! All users have been notified.");
       fetchMatch();
-    } catch (e: any) { Alert.alert("Error", e.response?.data?.message || e.message); }
+    } catch (e: any) { showError("Error", e.response?.data?.message || e.message); }
   };
 
   const handleUnpublish = async () => {
-    Alert.alert("Unpublish Event", "This will set the event back to draft. Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Unpublish", onPress: async () => {
-          try {
-            await adminAPI.togglePublish(match._id);
-            Alert.alert("Success", "Event has been unpublished and set to draft.");
-            fetchMatch();
-          } catch (e: any) { Alert.alert("Error", e.response?.data?.message || e.message); }
-        }
-      }
-    ]);
+    showConfirm("Unpublish Event", "This will set the event back to draft. Are you sure?", async () => {
+      try {
+        await adminAPI.togglePublish(match._id);
+        showSuccess("Success", "Event has been unpublished and set to draft.");
+        fetchMatch();
+      } catch (e: any) { showError("Error", e.response?.data?.message || e.message); }
+    }, "Unpublish");
   };
 
   if (loading) {
@@ -463,7 +454,7 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
         onRequestClose={() => setShowQR(false)}
       >
         <View style={styles.modalOverlay}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.qrCard}>
             <View style={styles.qrHeader}>
               <Text style={styles.qrTitle}>Scan to Join</Text>
@@ -599,6 +590,7 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.qrCard}>
             <View style={styles.qrHeader}>
               <Text style={styles.qrTitle}>
@@ -673,6 +665,7 @@ export const MatchDetailScreenAdmin = ({ route, navigation }: any) => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -699,7 +692,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     zIndex: 10,
     alignItems: 'center',
   },
@@ -817,7 +810,7 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     gap: 12,
     marginBottom: 32,
   },
@@ -847,7 +840,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   section: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginBottom: 32,
   },
   sectionTitle: {
@@ -931,7 +924,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 40,
     borderTopWidth: 1,
@@ -995,7 +988,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: `${COLORS.backgroundDark}CC`,
     padding: 20,
   },
   qrCard: {

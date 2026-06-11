@@ -8,7 +8,6 @@ import {
   StatusBar,
   TextInput,
   Dimensions,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Slider from '@react-native-community/slider';
@@ -16,11 +15,13 @@ import Slider from '@react-native-community/slider';
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import api from "../../services/api";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const WithdrawScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showInfo, PopupElement } = usePopup();
   const [amount, setAmount] = useState(0);
   const [wallet, setWallet] = useState<any>(null);
   const [method, setMethod] = useState<"UPI" | "BANK" | "SOURCE">("UPI");
@@ -71,26 +72,26 @@ export const WithdrawScreenAdmin = ({ navigation }: any) => {
 
   const handleConfirm = async () => {
     if (amount <= 0) {
-      Alert.alert("Invalid Amount", "Please select a valid amount to withdraw.");
+      showError("Invalid Amount", "Please select a valid amount to withdraw.");
       return;
     }
 
     let details = {};
     if (method === "UPI") {
       if (!upiId.trim()) {
-        Alert.alert("UPI ID Required", "Please enter a valid UPI ID.");
+        showError("UPI ID Required", "Please enter a valid UPI ID.");
         return;
       }
       details = { upiId };
     } else if (method === "BANK") {
       if (!accountName.trim() || !accountNumber.trim() || !ifscCode.trim()) {
-        Alert.alert("Incomplete Details", "Please fill in all bank details.");
+        showError("Incomplete Details", "Please fill in all bank details.");
         return;
       }
       details = { accountName, accountNumber, ifscCode };
     } else if (method === "SOURCE") {
       if (!lastSource) {
-        Alert.alert("Error", "No source account found.");
+        showError("Error", "No source account found.");
         return;
       }
       details = { source: lastSource };
@@ -103,12 +104,12 @@ export const WithdrawScreenAdmin = ({ navigation }: any) => {
         details
       });
       if (res.data.success) {
-        Alert.alert("Success", "Withdrawal initiated successfully!");
+        showSuccess("Success", "Withdrawal initiated successfully!");
         fetchWallet(); // Refresh wallet
-        navigation.goBack();
+        setTimeout(() => navigation.goBack(), 1500);
       }
     } catch (err: any) {
-      Alert.alert("Withdrawal Failed", err.response?.data?.message || err.message);
+      showError("Withdrawal Failed", err.response?.data?.message || err.message);
     }
   };
 
@@ -146,7 +147,7 @@ export const WithdrawScreenAdmin = ({ navigation }: any) => {
         <TouchableOpacity
           style={styles.helpButton}
           onPress={() =>
-            Alert.alert("Help", "Contact support for withdrawal help")
+            showInfo("Help", "Contact support for withdrawal help")
           }
           accessibilityRole="button"
           accessibilityLabel="Help"
@@ -336,6 +337,7 @@ export const WithdrawScreenAdmin = ({ navigation }: any) => {
           <MaterialIcons name="arrow-forward" size={20} color="white" />
         </TouchableOpacity>
       </View>
+      <PopupElement />
     </View>
   );
 };

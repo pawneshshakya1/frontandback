@@ -9,7 +9,6 @@ import {
   Dimensions,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
 } from "react-native";
@@ -19,6 +18,7 @@ import { BlurView } from "expo-blur";
 import { useFocusEffect } from "@react-navigation/native";
 import api, { partnerAPI } from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -26,6 +26,7 @@ const TIER_COLORS: Record<string, string> = { standard: "#94a3b8", sponsored: "#
 
 export const PartnerManagementScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const [partners, setPartners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -55,17 +56,17 @@ export const PartnerManagementScreenAdmin = ({ navigation }: any) => {
 
   const handleChangeTier = async () => {
     if (!tierModal.newTier) {
-      Alert.alert("Select Tier", "Please select a tier");
+      showError("Select Tier", "Please select a tier");
       return;
     }
     try {
       // Use partnerAPI upgradeTier with admin override
       await api.post("/partner/tier/upgrade", { tier: tierModal.newTier, userId: tierModal.partnerId });
       setTierModal({ visible: false, partnerId: "", username: "", currentTier: "", newTier: "" });
-      Alert.alert("Success", "Partner tier updated");
+      showSuccess("Success", "Partner tier updated");
       loadPartners();
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || "Failed to update tier");
+      showError("Error", err.response?.data?.message || "Failed to update tier");
     }
   };
 
@@ -134,16 +135,13 @@ export const PartnerManagementScreenAdmin = ({ navigation }: any) => {
                 <TouchableOpacity
                   style={[styles.actionBtn, { backgroundColor: "rgba(239,68,68,0.1)", borderColor: "rgba(239,68,68,0.2)" }]}
                   onPress={() => {
-                    Alert.alert("Suspend Partner", `Suspend ${partner.username}?`, [
-                      { text: "Cancel", style: "cancel" },
-                      { text: "Suspend", style: "destructive", onPress: async () => {
-                        try {
-                          await api.post(`/admin/users/${partner._id}/block`, { action: "BLOCK", reason: "Suspended by admin" });
-                          Alert.alert("Success", "Partner suspended");
-                          loadPartners();
-                        } catch (err: any) { Alert.alert("Error", err.response?.data?.message || "Failed"); }
-                      }},
-                    ]);
+                    showConfirm("Suspend Partner", `Suspend ${partner.username}?`, async () => {
+                      try {
+                        await api.post(`/admin/users/${partner._id}/block`, { action: "BLOCK", reason: "Suspended by admin" });
+                        showSuccess("Success", "Partner suspended");
+                        loadPartners();
+                      } catch (err: any) { showError("Error", err.response?.data?.message || "Failed"); }
+                    }, "Suspend");
                   }}
                 >
                   <MaterialIcons name="block" size={14} color="#ef4444" />
@@ -165,6 +163,7 @@ export const PartnerManagementScreenAdmin = ({ navigation }: any) => {
       {/* Tier Change Modal */}
       <Modal visible={tierModal.visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Change Tier — {tierModal.username}</Text>
             <Text style={styles.modalCurrent}>Current: {tierModal.currentTier.toUpperCase()}</Text>
@@ -191,6 +190,7 @@ export const PartnerManagementScreenAdmin = ({ navigation }: any) => {
           </View>
         </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   emptyText: { color: "rgba(255,255,255,0.3)", fontSize: 14, marginTop: 12 },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 24 },
+  modalOverlay: { flex: 1, justifyContent: "center", padding: 16 },
   modalContent: { backgroundColor: COLORS.surface, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   modalTitle: { color: "white", fontSize: 18, fontWeight: "bold", marginBottom: 4, textAlign: "center" },
   modalCurrent: { color: "rgba(255,255,255,0.4)", fontSize: 13, textAlign: "center", marginBottom: 20 },

@@ -12,7 +12,6 @@ import {
   Image,
   Modal,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform
 } from "react-native";
@@ -24,11 +23,13 @@ import { COLORS } from "../../theme/colors";
 import api from "../../services/api";
 import { EmptyState } from "../../components/EmptyState";
 import { FilterBottomSheet, FilterSection } from "../../components/FilterBottomSheet";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const UsersListScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const [roleFilter, setRoleFilter] = useState("All");
   const [blockFilter, setBlockFilter] = useState("All");
   const [users, setUsers] = useState<any[]>([]);
@@ -89,7 +90,7 @@ export const UsersListScreenAdmin = ({ navigation }: any) => {
     } catch (err) {
       console.error("Failed to fetch users", err);
       setError("Failed to load users. Please try again.");
-      Alert.alert("Error", "Failed to load users");
+      showError("Error", "Failed to load users");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -119,7 +120,7 @@ export const UsersListScreenAdmin = ({ navigation }: any) => {
   const handleBlockAction = async () => {
     if (!selectedUserToBlock) return;
     if (!blockReason.trim()) {
-      Alert.alert("Error", "Please provide a reason for blocking the user.");
+      showError("Error", "Please provide a reason for blocking the user.");
       return;
     }
 
@@ -133,39 +134,33 @@ export const UsersListScreenAdmin = ({ navigation }: any) => {
       setBlockReason("");
       setSelectedUserToBlock(null);
       fetchUsers(); // Refresh the list
-      Alert.alert("Success", "User has been blocked successfully.");
+      showSuccess("Success", "User has been blocked successfully.");
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.message || 'Failed to block user');
+      showError("Error", err.response?.data?.message || 'Failed to block user');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleUnblock = async (user: any) => {
-    Alert.alert(
+    showConfirm(
       "Unblock User",
       `Are you sure you want to unblock ${user.username || 'this user'}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Unblock",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setActionLoading(true);
-              await api.post(`/admin/users/${user._id}/block`, {
-                action: 'UNBLOCK'
-              });
-              fetchUsers();
-              Alert.alert("Success", "User unblocked successfully.");
-            } catch (err: any) {
-              Alert.alert("Error", err.response?.data?.message || 'Failed to unblock user');
-            } finally {
-              setActionLoading(false);
-            }
-          }
+      async () => {
+        try {
+          setActionLoading(true);
+          await api.post(`/admin/users/${user._id}/block`, {
+            action: 'UNBLOCK'
+          });
+          fetchUsers();
+          showSuccess("Success", "User unblocked successfully.");
+        } catch (err: any) {
+          showError("Error", err.response?.data?.message || 'Failed to unblock user');
+        } finally {
+          setActionLoading(false);
         }
-      ]
+      },
+      "Unblock",
     );
   };
 
@@ -268,7 +263,7 @@ export const UsersListScreenAdmin = ({ navigation }: any) => {
       ) : (
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f47b25" />}
         >
           {filteredUsers.length > 0 ? filteredUsers.map((item, index) => (
@@ -423,6 +418,7 @@ export const UsersListScreenAdmin = ({ navigation }: any) => {
         </KeyboardAvoidingView>
       </Modal>
 
+      <PopupElement />
     </View>
   );
 };
@@ -434,10 +430,9 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 16,
   },
   modalContent: {
     backgroundColor: '#1a1a1a',
@@ -509,7 +504,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 12,
   },
   backButton: {
@@ -542,7 +537,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: "rgba(255,255,255,0.05)",
-    marginHorizontal: 24,
+    marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 8,
     borderRadius: 12,

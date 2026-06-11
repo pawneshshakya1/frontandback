@@ -202,13 +202,14 @@ PartnerProfileSchema.statics.getAllTiers = function() {
 // Instance method to check if partner can create event type
 PartnerProfileSchema.methods.canCreateEventType = function(eventType) {
   const tierConfig = getTierConfig(this.partner_tier);
-  switch (eventType) {
-    case 'SPONSORED':
+  const type = (eventType || '').toLowerCase();
+  switch (type) {
+    case 'sponsored':
       return tierConfig.can_create_sponsored;
-    case 'PREMIUM':
+    case 'premium':
       return tierConfig.can_create_premium;
-    case 'STANDARD':
-      return true; // All tiers can create standard
+    case 'standard':
+      return true;
     default:
       return true;
   }

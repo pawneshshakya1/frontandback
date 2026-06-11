@@ -7,42 +7,68 @@ import {
   StatusBar,
   Switch,
   ScrollView,
-  Alert,
   Clipboard,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PopupModal } from "../../components/PopupModal";
 
 export const TwoFactorAuthScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
   const [isEnabled, setIsEnabled] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
   const twoFASecret = "ABCD 1234 EFGH 5678";
 
   const toggleSwitch = () => {
     if (!isEnabled) {
       setShowSetup(true);
     } else {
-      Alert.alert(
-        "Disable 2FA?",
-        "Are you sure you want to disable Two-Factor Authentication? Your account will be less secure.",
-        [
-          { text: "Cancel", style: "cancel" },
+      setPopup({
+        visible: true,
+        type: 'warning',
+        title: "Disable 2FA?",
+        message: "Are you sure you want to disable Two-Factor Authentication? Your account will be less secure.",
+        buttons: [
           {
-            text: "Disable", onPress: () => {
+            text: "Cancel",
+            onPress: () => setPopup((prev) => ({ ...prev, visible: false })),
+            style: "ghost"
+          },
+          {
+            text: "Disable",
+            onPress: () => {
+              setPopup((prev) => ({ ...prev, visible: false }));
               setIsEnabled(false);
               setShowSetup(false);
-            }, style: "destructive"
+            },
+            style: "danger"
           }
         ]
-      );
+      });
     }
   };
 
   const handleVerify = () => {
     setIsEnabled(true);
     setShowSetup(false);
-    Alert.alert("Success", "Two-Factor Authentication has been enabled!");
+    setPopup({
+      visible: true,
+      type: 'success',
+      title: "Success",
+      message: "Two-Factor Authentication has been enabled!",
+    });
   };
 
   return (
@@ -103,7 +129,12 @@ export const TwoFactorAuthScreen = ({ navigation }: any) => {
               <Text style={styles.keyValue}>{twoFASecret}</Text>
               <TouchableOpacity style={styles.copyButton} onPress={() => {
                 Clipboard.setString(twoFASecret.replace(' ', ''));
-                Alert.alert('Copied', 'Secret copied to clipboard');
+                setPopup({
+                  visible: true,
+                  type: 'success',
+                  title: 'Copied',
+                  message: 'Secret copied to clipboard',
+                });
               }}>
                 <MaterialIcons name="content-copy" size={16} color="#f47b25" />
               </TouchableOpacity>
@@ -115,6 +146,15 @@ export const TwoFactorAuthScreen = ({ navigation }: any) => {
           </View>
         )}
       </ScrollView>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -127,7 +167,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -149,7 +189,7 @@ const styles = StyleSheet.create({
     marginRight: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 40,
   },
   mainCard: {

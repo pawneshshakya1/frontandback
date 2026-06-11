@@ -3,14 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  Alert,
-  StatusBar,
-  ScrollView,
-  ImageBackground,
-  TouchableOpacity,
-  Dimensions,
   ActivityIndicator,
   Modal,
+  Dimensions,
+  StatusBar,
+  ImageBackground,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { BlurView } from 'expo-blur';
@@ -23,6 +22,7 @@ import { CountdownTimer } from '../../components/CountdownTimer';
 import { RoomCredentialsCard } from '../../components/RoomCredentialsCard';
 import { canHostEditCredentials } from '../../utils/matchTime';
 import EventSource, { EventSourceListener } from "react-native-sse";
+import { PopupModal } from '../../components/PopupModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -31,6 +31,18 @@ export const MatchDetailScreen = ({ route, navigation }: any) => {
   const { matchId } = route.params;
   const { data: match, loading, refetch: fetchMatch } = useMatchPolling(matchId);
   const [showQR, setShowQR] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const COLORS = {
     primary: "#f47b25",
@@ -87,10 +99,20 @@ export const MatchDetailScreen = ({ route, navigation }: any) => {
   const handleJoin = async () => {
     try {
       await matchAPI.joinMatchById(match._id, { paymentMethod: 'WALLET' });
-      Alert.alert('Success!', 'You have successfully joined the match.');
+      setPopup({
+        visible: true,
+        type: 'success',
+        title: 'Success!',
+        message: 'You have successfully joined the match.',
+      });
       fetchMatch();
     } catch (error: any) {
-      Alert.alert('Join Failed', error.response?.data?.message || 'Error joining match.');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Join Failed',
+        message: error.response?.data?.message || 'Error joining match.',
+      });
     }
   };
 
@@ -98,25 +120,53 @@ export const MatchDetailScreen = ({ route, navigation }: any) => {
   const isDraft = match && match.isPublished === false;
 
   const handleDelete = async () => {
-    Alert.alert("Delete Match", "Are you sure you want to delete this draft?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete", style: "destructive", onPress: async () => {
-          try {
-            await api.delete('/matches/' + match._id);
-            navigation.goBack();
-          } catch (e: any) { Alert.alert("Error", e.response?.data?.message || e.message); }
+    setPopup({
+      visible: true,
+      type: 'confirm',
+      title: 'Delete Match',
+      message: 'Are you sure you want to delete this draft?',
+      buttons: [
+        { text: 'Cancel', style: 'cancel', onPress: () => setPopup(p => ({ ...p, visible: false })) },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setPopup(p => ({ ...p, visible: false }));
+              await api.delete('/matches/' + match._id);
+              navigation.goBack();
+            } catch (e: any) {
+              setPopup({
+                visible: true,
+                type: 'error',
+                title: 'Error',
+                message: e.response?.data?.message || e.message,
+              });
+            }
+          }
         }
-      }
-    ]);
+      ]
+    });
   };
 
   const handlePublish = async () => {
     try {
       await api.put('/matches/' + match._id, { isPublished: true });
-      Alert.alert("Success", "Match is now live!");
+      setPopup({
+        visible: true,
+        type: 'success',
+        title: 'Success',
+        message: 'Match is now live!',
+      });
       fetchMatch();
-    } catch (e: any) { Alert.alert("Error", e.response?.data?.message || e.message); }
+    } catch (e: any) {
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: e.response?.data?.message || e.message,
+      });
+    }
   };
 
   if (loading) {
@@ -333,30 +383,40 @@ export const MatchDetailScreen = ({ route, navigation }: any) => {
         animationType="fade"
         onRequestClose={() => setShowQR(false)}
       >
-        <View style={styles.modalOverlay}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-          <View style={styles.qrCard}>
-            <View style={styles.qrHeader}>
-              <Text style={styles.qrTitle}>Scan to Join</Text>
-              <TouchableOpacity onPress={() => setShowQR(false)}>
-                <MaterialIcons name="close" size={24} color="white" />
-              </TouchableOpacity>
-            </View>
+        <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.qrCard}>
+              <View style={styles.qrHeader}>
+                <Text style={styles.qrTitle}>Scan to Join</Text>
+                <TouchableOpacity onPress={() => setShowQR(false)}>
+                  <MaterialIcons name="close" size={24} color="white" />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.qrContainer}>
-              <QRCode
-                value={JSON.stringify({ type: 'match', id: match._id, roomId: match.room_id })}
-                size={200}
-                color="black"
-                backgroundColor="white"
-              />
-            </View>
+              <View style={styles.qrContainer}>
+                <QRCode
+                  value={JSON.stringify({ type: 'match', id: match._id, roomId: match.room_id })}
+                  size={200}
+                  color="black"
+                  backgroundColor="white"
+                />
+              </View>
 
-            <Text style={styles.qrRoomId}>Room ID: {match.room_id}</Text>
-            <Text style={styles.qrHint}>Share this QR code with your friends to invite them to this match.</Text>
+              <Text style={styles.qrRoomId}>Room ID: {match.room_id}</Text>
+              <Text style={styles.qrHint}>Share this QR code with your friends to invite them to this match.</Text>
+            </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
 
       {/* Floating Join Button */}
       <BlurView intensity={20} tint="dark" style={styles.bottomBar}>
@@ -433,7 +493,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     zIndex: 10,
     alignItems: 'center',
   },
@@ -458,8 +518,8 @@ const styles = StyleSheet.create({
   heroContent: {
     position: 'absolute',
     bottom: 24,
-    left: 24,
-    right: 24,
+    left: 16,
+    right: 16,
   },
   heroInfoRow: {
     flexDirection: 'row',
@@ -530,12 +590,12 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     gap: 12,
     marginBottom: 32,
   },
   infoTag: {
-    width: (width - 52) / 2,
+    width: (width - 44) / 2,
     backgroundColor: '#1a1a1a',
     borderRadius: 16,
     borderWidth: 1,
@@ -560,7 +620,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   section: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     marginBottom: 32,
   },
   sectionTitle: {
@@ -644,7 +704,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 20,
     paddingBottom: 40,
     borderTopWidth: 1,
@@ -708,8 +768,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 20,
+    padding: 16,
   },
   qrCard: {
     width: '100%',

@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image, Modal, ScrollView, Dimensions, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView, Dimensions, TextInput, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import api, { matchAPI } from '../../services/api';
+import { PopupModal } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 
@@ -17,6 +18,18 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
     const [timerActive, setTimerActive] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [rejectModal, setRejectModal] = useState({ visible: false, reason: '' });
+    const [popup, setPopup] = useState<{
+        visible: boolean;
+        type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+        title: string;
+        message: string;
+        buttons?: any[];
+    }>({
+        visible: false,
+        type: 'info',
+        title: '',
+        message: '',
+    });
 
     useEffect(() => {
         fetchMediatorMatches();
@@ -63,12 +76,22 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
         try {
             setActionLoading(true);
             await matchAPI.approveResult(selectedMatch._id);
-            Alert.alert("Success", "Match result approved! Prize distributed to winner.");
+            setPopup({
+                visible: true,
+                type: 'success',
+                title: 'Success',
+                message: 'Match result approved! Prize distributed to winner.',
+            });
             setModalVisible(false);
             setTimerActive(false);
             fetchMediatorMatches();
         } catch (err: any) {
-            Alert.alert("Error", err.response?.data?.message || "Failed to approve");
+            setPopup({
+                visible: true,
+                type: 'error',
+                title: 'Error',
+                message: err.response?.data?.message || 'Failed to approve',
+            });
         } finally {
             setActionLoading(false);
         }
@@ -76,29 +99,42 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
 
     const handleAIDeclare = async () => {
         if (!selectedMatch) return;
-        Alert.alert(
-            "AI Auto-Declare Winner",
-            "AI will analyze all submitted screenshots and stats to determine the winner. You can override this decision afterwards. Continue?",
-            [
-                { text: "Cancel", style: "cancel" },
+        setPopup({
+            visible: true,
+            type: 'confirm',
+            title: 'AI Auto-Declare Winner',
+            message: 'AI will analyze all submitted screenshots and stats to determine the winner. You can override this decision afterwards. Continue?',
+            buttons: [
+                { text: 'Cancel', style: 'cancel', onPress: () => setPopup(p => ({ ...p, visible: false })) },
                 {
-                    text: "Run AI", onPress: async () => {
+                    text: 'Run AI', onPress: async () => {
                         try {
+                            setPopup(p => ({ ...p, visible: false }));
                             setActionLoading(true);
                             const res = await matchAPI.aiAnalyze(selectedMatch._id);
                             if (res.data.success) {
-                                Alert.alert("AI Verdict Ready", `Winner: ${res.data.data.ai_verdict?.winner_user_id || 'TBD'}\n\nConfidence: ${Math.round((res.data.data.ai_verdict?.confidence || 0) * 100)}%\n\n${res.data.data.ai_verdict?.reasoning || ''}`);
+                                setPopup({
+                                    visible: true,
+                                    type: 'success',
+                                    title: 'AI Verdict Ready',
+                                    message: `Winner: ${res.data.data.ai_verdict?.winner_user_id || 'TBD'}\n\nConfidence: ${Math.round((res.data.data.ai_verdict?.confidence || 0) * 100)}%\n\n${res.data.data.ai_verdict?.reasoning || ''}`,
+                                });
                                 fetchMediatorMatches();
                             }
                         } catch (err: any) {
-                            Alert.alert("Error", err.response?.data?.message || "AI analysis failed");
+                            setPopup({
+                                visible: true,
+                                type: 'error',
+                                title: 'Error',
+                                message: err.response?.data?.message || 'AI analysis failed',
+                            });
                         } finally {
                             setActionLoading(false);
                         }
                     }
                 }
             ]
-        );
+        });
     };
 
     const handleRejectResult = async () => {
@@ -106,13 +142,23 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
         try {
             setActionLoading(true);
             await matchAPI.rejectResult(selectedMatch._id, { reason: rejectModal.reason || 'Rejected by mediator' });
-            Alert.alert("Rejected", "All submissions have been cleared. Participants can re-upload.");
+            setPopup({
+                visible: true,
+                type: 'success',
+                title: 'Rejected',
+                message: 'All submissions have been cleared. Participants can re-upload.',
+            });
             setRejectModal({ visible: false, reason: '' });
             setModalVisible(false);
             setTimerActive(false);
             fetchMediatorMatches();
         } catch (err: any) {
-            Alert.alert("Error", err.response?.data?.message || "Failed to reject");
+            setPopup({
+                visible: true,
+                type: 'error',
+                title: 'Error',
+                message: err.response?.data?.message || 'Failed to reject',
+            });
         } finally {
             setActionLoading(false);
         }
@@ -120,28 +166,41 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
 
     const handleSelectWinner = (userId: string, username?: string) => {
         if (!selectedMatch) return;
-        Alert.alert(
-            "Declare Winner",
-            `Select ${username || 'this user'} as the winner? Prize will be awarded on approval.`,
-            [
-                { text: "Cancel", style: "cancel" },
+        setPopup({
+            visible: true,
+            type: 'confirm',
+            title: 'Declare Winner',
+            message: `Select ${username || 'this user'} as the winner? Prize will be awarded on approval.`,
+            buttons: [
+                { text: 'Cancel', style: 'cancel', onPress: () => setPopup(p => ({ ...p, visible: false })) },
                 {
-                    text: "Select", onPress: async () => {
+                    text: 'Select', onPress: async () => {
                         try {
+                            setPopup(p => ({ ...p, visible: false }));
                             setActionLoading(true);
                             await matchAPI.selectWinner(selectedMatch._id, userId);
-                            Alert.alert("Winner Selected", "Now tap APPROVE to distribute the prize.");
+                            setPopup({
+                                visible: true,
+                                type: 'success',
+                                title: 'Winner Selected',
+                                message: 'Now tap APPROVE to distribute the prize.',
+                            });
                             fetchMediatorMatches();
                             setSelectedMatch({ ...selectedMatch, winner_id: userId });
                         } catch (err: any) {
-                            Alert.alert("Error", err.response?.data?.message || "Failed to select winner");
+                            setPopup({
+                                visible: true,
+                                type: 'error',
+                                title: 'Error',
+                                message: err.response?.data?.message || 'Failed to select winner',
+                            });
                         } finally {
                             setActionLoading(false);
                         }
                     }
                 }
             ]
-        );
+        });
     };
 
     const formatTime = (seconds: number) => {
@@ -210,8 +269,9 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
                 transparent={true}
                 onRequestClose={() => setModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <View>
                                 <Text style={styles.modalTitle}>Result Review</Text>
@@ -352,7 +412,8 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </BlurView>
+        </Modal>
 
             {/* Reject Reason Modal */}
             <Modal
@@ -361,8 +422,9 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
                 animationType="fade"
                 onRequestClose={() => setRejectModal({ visible: false, reason: '' })}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.rejectCard}>
+                <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.rejectCard}>
                         <View style={styles.modalHeader}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <MaterialIcons name="block" size={20} color="#ef4444" />
@@ -404,7 +466,17 @@ export const MediatorDashboardScreen = ({ navigation }: any) => {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </BlurView>
+        </Modal>
+
+            <PopupModal
+                visible={popup.visible}
+                type={popup.type}
+                title={popup.title}
+                message={popup.message}
+                buttons={popup.buttons}
+                onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };
@@ -480,7 +552,6 @@ const styles = StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
         justifyContent: 'center',
         padding: 16
     },

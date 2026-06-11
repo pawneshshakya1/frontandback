@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
   StatusBar,
@@ -20,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../../theme/colors';
 import api, { walletAPI } from '../../services/api';
 import { sseService } from '../../services/sse';
+import { PopupModal } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 const fmt = (n: number) => `₹ ${Number(n || 0).toLocaleString('en-IN')}`;
@@ -39,6 +39,18 @@ export const WalletScreen = ({ navigation }: any) => {
   const [otp, setOtp] = useState('');
   const [newPin, setNewPin] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [popup, setPopup] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const fetchWallet = useCallback(async () => {
     try {
@@ -123,7 +135,12 @@ export const WalletScreen = ({ navigation }: any) => {
     if (routes[action]) {
       navigation.navigate(routes[action]);
     } else {
-      Alert.alert(action, `${action} feature is coming soon!`);
+      setPopup({
+        visible: true,
+        type: 'info',
+        title: action,
+        message: `${action} feature is coming soon!`,
+      });
     }
   };
 
@@ -134,7 +151,12 @@ export const WalletScreen = ({ navigation }: any) => {
       setResetStep(1);
       setResetModalVisible(true);
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to request PIN reset');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: err.response?.data?.message || 'Failed to request PIN reset',
+      });
     } finally {
       setIsResetting(false);
     }
@@ -142,31 +164,56 @@ export const WalletScreen = ({ navigation }: any) => {
 
   const verifyOtp = async () => {
     if (otp.length < 4) {
-      Alert.alert('Error', 'Please enter a valid OTP');
+      setPopup({
+        visible: true,
+        type: 'warning',
+        title: 'Error',
+        message: 'Please enter a valid OTP',
+      });
       return;
     }
     try {
       await api.post('/wallet/verify-pin-otp', { otp: otp.trim() });
       setResetStep(2);
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Invalid OTP');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: err.response?.data?.message || 'Invalid OTP',
+      });
     }
   };
 
   const finalizeReset = async () => {
     if (newPin.length < 4) {
-      Alert.alert('Error', 'PIN must be at least 4 digits');
+      setPopup({
+        visible: true,
+        type: 'warning',
+        title: 'Error',
+        message: 'PIN must be at least 4 digits',
+      });
       return;
     }
     try {
       await api.post('/wallet/reset-pin', { otp, newPin });
-      Alert.alert('Success', 'Wallet PIN updated successfully');
+      setPopup({
+        visible: true,
+        type: 'success',
+        title: 'Success',
+        message: 'Wallet PIN updated successfully',
+      });
       setResetModalVisible(false);
       setResetStep(0);
       setOtp('');
       setNewPin('');
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to reset PIN');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: err.response?.data?.message || 'Failed to reset PIN',
+      });
     }
   };
 
@@ -455,58 +502,59 @@ export const WalletScreen = ({ navigation }: any) => {
           animationType="fade"
           onRequestClose={() => setResetModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  {resetStep === 1 ? 'Verify Email' : 'Set New PIN'}
-                </Text>
-                <TouchableOpacity onPress={() => setResetModalVisible(false)}>
-                  <MaterialIcons name="close" size={24} color="white" />
-                </TouchableOpacity>
-              </View>
+          <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark">
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    {resetStep === 1 ? 'Verify Email' : 'Set New PIN'}
+                  </Text>
+                  <TouchableOpacity onPress={() => setResetModalVisible(false)}>
+                    <MaterialIcons name="close" size={24} color="white" />
+                  </TouchableOpacity>
+                </View>
 
-              {resetStep === 1 ? (
-                <View style={styles.modalBody}>
-                  <Text style={styles.modalSub}>
-                    Enter the OTP sent to your registered email
-                  </Text>
-                  <TextInput
-                    style={styles.otpInput}
-                    placeholder="Enter OTP"
-                    placeholderTextColor="rgba(255,255,255,0.2)"
-                    keyboardType="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChangeText={setOtp}
-                  />
-                  <TouchableOpacity style={styles.modalActionBtn} onPress={verifyOtp}>
-                    <Text style={styles.modalActionText}>VERIFY OTP</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.modalBody}>
-                  <Text style={styles.modalSub}>
-                    Create a new secure 4–6 digit PIN
-                  </Text>
-                  <TextInput
-                    style={styles.otpInput}
-                    placeholder="Enter New PIN"
-                    placeholderTextColor="rgba(255,255,255,0.2)"
-                    keyboardType="numeric"
-                    secureTextEntry
-                    maxLength={6}
-                    value={newPin}
-                    onChangeText={setNewPin}
-                  />
-                  <TouchableOpacity style={styles.modalActionBtn} onPress={finalizeReset}>
-                    <Text style={styles.modalActionText}>UPDATE PIN</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                {resetStep === 1 ? (
+                  <View style={styles.modalBody}>
+                    <Text style={styles.modalSub}>
+                      Enter the OTP sent to your registered email
+                    </Text>
+                    <TextInput
+                      style={styles.otpInput}
+                      placeholder="Enter OTP"
+                      placeholderTextColor="rgba(255,255,255,0.2)"
+                      keyboardType="numeric"
+                      maxLength={6}
+                      value={otp}
+                      onChangeText={setOtp}
+                    />
+                    <TouchableOpacity style={styles.modalActionBtn} onPress={verifyOtp}>
+                      <Text style={styles.modalActionText}>VERIFY OTP</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.modalBody}>
+                    <Text style={styles.modalSub}>
+                      Create a new secure 4–6 digit PIN
+                    </Text>
+                    <TextInput
+                      style={styles.otpInput}
+                      placeholder="Enter New PIN"
+                      placeholderTextColor="rgba(255,255,255,0.2)"
+                      keyboardType="numeric"
+                      secureTextEntry
+                      maxLength={6}
+                      value={newPin}
+                      onChangeText={setNewPin}
+                    />
+                    <TouchableOpacity style={styles.modalActionBtn} onPress={finalizeReset}>
+                      <Text style={styles.modalActionText}>UPDATE PIN</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
+          </BlurView>
         </Modal>
 
         {/* Transaction History */}
@@ -536,6 +584,15 @@ export const WalletScreen = ({ navigation }: any) => {
           )}
         </View>
       </ScrollView>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -813,10 +870,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 16,
   },
   modalContent: {
-    width: width * 0.85,
+    width: width - 32,
     backgroundColor: COLORS.surface,
     borderRadius: 24,
     padding: 24,

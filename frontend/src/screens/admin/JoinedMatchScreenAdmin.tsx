@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
         right: 0,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingBottom: 20,
         zIndex: 100,
         borderBottomWidth: 1,
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     },
     filterContainer: {
         flexDirection: 'row',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         marginBottom: 10,
         gap: 10,
     },

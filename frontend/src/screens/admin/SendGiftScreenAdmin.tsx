@@ -9,16 +9,17 @@ import {
   TextInput,
   Dimensions,
   Image,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import api from "../../services/api";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const SendGiftScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showSuccess, showConfirm, PopupElement } = usePopup();
   const [accountNo, setAccountNo] = useState("");
   const [recipient, setRecipient] = useState<any>(null);
   const [amount, setAmount] = useState("");
@@ -38,7 +39,7 @@ export const SendGiftScreenAdmin = ({ navigation }: any) => {
 
   const handleVerify = async () => {
     if (!accountNo.trim()) {
-      Alert.alert("Error", "Please enter a wallet account number");
+      showError("Error", "Please enter a wallet account number");
       return;
     }
 
@@ -50,7 +51,7 @@ export const SendGiftScreenAdmin = ({ navigation }: any) => {
       }
     } catch (error: any) {
       setRecipient(null);
-      Alert.alert("Verification Failed", error.response?.data?.message || "Wallet not found");
+      showError("Verification Failed", error.response?.data?.message || "Wallet not found");
     } finally {
       setVerifying(false);
     }
@@ -58,42 +59,36 @@ export const SendGiftScreenAdmin = ({ navigation }: any) => {
 
   const handleConfirmSend = () => {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount to send.");
+      showError("Invalid Amount", "Please enter a valid amount to send.");
       return;
     }
     if (pin.length < 4) {
-      Alert.alert("Security PIN", "Please enter your 6-digit Wallet PIN.");
+      showError("Security PIN", "Please enter your 6-digit Wallet PIN.");
       return;
     }
-    Alert.alert(
+    showConfirm(
       "Confirm Transaction",
       `Are you sure you want to send ₹${amount} to ${accountNo}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Confirm",
-          onPress: async () => {
-            try {
-              setLoading(true);
-              const res = await api.post('/wallet/send-gift', {
-                receiverAccountNo: accountNo,
-                amount: Number(amount),
-                pin
-              });
+      async () => {
+        try {
+          setLoading(true);
+          const res = await api.post('/wallet/send-gift', {
+            receiverAccountNo: accountNo,
+            amount: Number(amount),
+            pin
+          });
 
-              if (res.data.success) {
-                Alert.alert("Success", "Gift sent successfully!", [
-                  { text: "OK", onPress: () => navigation.goBack() }
-                ]);
-              }
-            } catch (error: any) {
-              Alert.alert("Error", error.response?.data?.message || "Failed to send gift");
-            } finally {
-              setLoading(false);
-            }
+          if (res.data.success) {
+            showSuccess("Success", "Gift sent successfully!");
+            setTimeout(() => navigation.goBack(), 1500);
           }
+        } catch (error: any) {
+          showError("Error", error.response?.data?.message || "Failed to send gift");
+        } finally {
+          setLoading(false);
         }
-      ]
+      },
+      "Confirm",
     );
   };
 
@@ -214,6 +209,7 @@ export const SendGiftScreenAdmin = ({ navigation }: any) => {
           <MaterialIcons name="send" size={18} color="white" />
         </TouchableOpacity>
       </View>
+      <PopupElement />
     </View>
   );
 };
@@ -290,7 +286,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.1)",
     height: 46,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     color: "white",
     fontSize: 14,
   },
@@ -371,7 +367,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
     height: 46,
     paddingLeft: 40,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     color: "white",
     fontSize: 18,
     fontWeight: "bold",

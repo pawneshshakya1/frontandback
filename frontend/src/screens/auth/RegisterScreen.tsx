@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   StatusBar,
-  Alert,
   Dimensions,
   ActivityIndicator,
 } from "react-native";
@@ -17,12 +16,14 @@ import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS } from "../../theme/colors";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
 export const RegisterScreen = ({ navigation }: any) => {
   const { signUp } = useAuth();
   const insets = useSafeAreaInsets();
+  const { showSuccess, showError, PopupElement } = usePopup();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,28 +32,28 @@ export const RegisterScreen = ({ navigation }: any) => {
 
   const validate = (): boolean => {
     if (!username.trim() || !email.trim() || !password || !confirmPassword) {
-      Alert.alert("Error", "Please fill all fields");
+      showError("Error", "Please fill all fields");
       return false;
     }
     if (username.trim().length < 3) {
-      Alert.alert("Error", "Username must be at least 3 characters");
+      showError("Error", "Username must be at least 3 characters");
       return false;
     }
     if (username.trim().length > 30) {
-      Alert.alert("Error", "Username must be less than 30 characters");
+      showError("Error", "Username must be less than 30 characters");
       return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email.trim())) {
-      Alert.alert("Error", "Please enter a valid email address");
+      showError("Error", "Please enter a valid email address");
       return false;
     }
     if (password.length < 6) {
-      Alert.alert("Error", "Password must be at least 6 characters");
+      showError("Error", "Password must be at least 6 characters");
       return false;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      showError("Error", "Passwords do not match");
       return false;
     }
     return true;
@@ -68,9 +69,9 @@ export const RegisterScreen = ({ navigation }: any) => {
         email: email.trim().toLowerCase(),
         password,
       });
-      Alert.alert("Success", "Account created successfully!");
+      showSuccess("Success", "Account created successfully!");
     } catch (error: any) {
-      Alert.alert(
+      showError(
         "Registration Failed",
         error.response?.data?.message || error.message || "Something went wrong"
       );
@@ -281,6 +282,7 @@ export const RegisterScreen = ({ navigation }: any) => {
           },
         ]}
       />
+      <PopupElement />
     </View>
   );
 };
@@ -307,7 +309,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   topBar: {
     flexDirection: "row",
@@ -354,7 +356,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
-    padding: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
     backgroundColor: "rgba(20, 20, 20, 0.75)",
   },
   formGap: {

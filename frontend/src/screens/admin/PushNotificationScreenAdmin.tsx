@@ -9,7 +9,6 @@ import {
   Dimensions,
   ActivityIndicator,
   TextInput,
-  Alert,
   Platform,
   Image,
 } from "react-native";
@@ -19,6 +18,7 @@ import { BlurView } from "expo-blur";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { notificationAPI } from "../../services/api";
 import { COLORS } from "../../theme/colors";
+import { usePopup } from "../../components/PopupModal";
 
 const { width } = Dimensions.get("window");
 
@@ -62,6 +62,7 @@ const DELAY_OPTIONS = [
 
 export const PushNotificationScreenAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const { showError, showConfirm, PopupElement } = usePopup();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [target, setTarget] = useState<"all" | "partners" | "premium">("all");
@@ -117,7 +118,7 @@ export const PushNotificationScreenAdmin = ({ navigation }: any) => {
 
   const handleSend = async () => {
     if (!title.trim() || !body.trim()) {
-      Alert.alert("Required", "Please enter title and message");
+      showError("Required", "Please enter title and message");
       return;
     }
 
@@ -127,85 +128,80 @@ export const PushNotificationScreenAdmin = ({ navigation }: any) => {
       : `Scheduled for ${scheduledDate.toLocaleString()}`;
     const imageLabel = imageUrl.trim() ? "\nImage attached" : "";
 
-    Alert.alert(
+    showConfirm(
       "Send Push Notification",
       `Send to ${targetLabel}?\n\n${modeLabel}${imageLabel}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Send",
-          onPress: async () => {
-            setSending(true);
-            try {
-              const payload: any = {
-                title: title.trim(),
-                body: body.trim(),
-                target,
-                batchSize,
-                batchDelay,
-                sendMode,
-              };
+      async () => {
+        setSending(true);
+        try {
+          const payload: any = {
+            title: title.trim(),
+            body: body.trim(),
+            target,
+            batchSize,
+            batchDelay,
+            sendMode,
+          };
 
-              if (sendMode === "scheduled") {
-                payload.scheduledAt = scheduledDate.toISOString();
-              }
+          if (sendMode === "scheduled") {
+            payload.scheduledAt = scheduledDate.toISOString();
+          }
 
-              if (imageUrl.trim()) {
-                payload.image = imageUrl.trim();
-              }
+          if (imageUrl.trim()) {
+            payload.image = imageUrl.trim();
+          }
 
-              const res = await notificationAPI.sendBroadcast(payload);
+          const res = await notificationAPI.sendBroadcast(payload);
 
-              if (res.data.success) {
-                const job = res.data.data;
-                const newJob: BroadcastJob = {
-                  id: job.jobId,
-                  title: title.trim(),
-                  body: body.trim(),
-                  target,
-                  image: imageUrl.trim() || null,
-                  sendMode: job.sendMode,
-                  scheduledAt: job.scheduledAt,
-                  status: job.sendMode === "scheduled" ? "scheduled" : "queued",
-                  totalUsers: job.totalUsers,
-                  sentCount: 0,
-                  failedCount: 0,
-                  currentBatch: 0,
-                  totalBatches: job.totalBatches,
-                  progress: 0,
-                  elapsed: 0,
-                  estimatedRemaining: 0,
-                  countdown: job.scheduledAt ? Math.max(0, Math.floor((new Date(job.scheduledAt).getTime() - Date.now()) / 1000)) : 0,
-                  createdAt: new Date().toISOString(),
-                  startedAt: null,
-                  completedAt: null,
-                  error: null,
-                };
+          if (res.data.success) {
+            const job = res.data.data;
+            const newJob: BroadcastJob = {
+              id: job.jobId,
+              title: title.trim(),
+              body: body.trim(),
+              target,
+              image: imageUrl.trim() || null,
+              sendMode: job.sendMode,
+              scheduledAt: job.scheduledAt,
+              status: job.sendMode === "scheduled" ? "scheduled" : "queued",
+              totalUsers: job.totalUsers,
+              sentCount: 0,
+              failedCount: 0,
+              currentBatch: 0,
+              totalBatches: job.totalBatches,
+              progress: 0,
+              elapsed: 0,
+              estimatedRemaining: 0,
+              countdown: job.scheduledAt ? Math.max(0, Math.floor((new Date(job.scheduledAt).getTime() - Date.now()) / 1000)) : 0,
+              createdAt: new Date().toISOString(),
+              startedAt: null,
+              completedAt: null,
+              error: null,
+            };
 
-                setActiveJob(newJob);
+            setActiveJob(newJob);
 
-                if (job.sendMode === "instant") {
-                  startPolling(job.jobId);
-                } else {
-                  // Start countdown polling
-                  startScheduledPolling(job.jobId);
-                }
-
-                // Clear form
-                setTitle("");
-                setBody("");
-                setImageUrl("");
-              }
-            } catch (err: any) {
-              const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to send";
-              const detail = err.response?.status ? ` (Status: ${err.response.status})` : "";
-              Alert.alert("Error", `${msg}${detail}`);
-            } finally {
-              setSending(false);
+            if (job.sendMode === "instant") {
+              startPolling(job.jobId);
+            } else {
+              // Start countdown polling
+              startScheduledPolling(job.jobId);
             }
-          },
-        },
-      ]
+
+            // Clear form
+            setTitle("");
+            setBody("");
+            setImageUrl("");
+          }
+        } catch (err: any) {
+          const msg = err.response?.data?.message || err.response?.data?.error || err.message || "Failed to send";
+          const detail = err.response?.status ? ` (Status: ${err.response.status})` : "";
+          showError("Error", `${msg}${detail}`);
+        } finally {
+          setSending(false);
+        }
+      },
+      "Send"
     );
   };
 
@@ -271,23 +267,16 @@ export const PushNotificationScreenAdmin = ({ navigation }: any) => {
   };
 
   const handleCancel = async (jobId: string) => {
-    Alert.alert("Cancel Broadcast", "Are you sure you want to cancel this broadcast?", [
-      { text: "No", style: "cancel" },
-      {
-        text: "Yes, Cancel",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await notificationAPI.cancelBroadcast(jobId);
-            if (pollRef.current) clearInterval(pollRef.current);
-            if (countdownRef.current) clearInterval(countdownRef.current);
-            setActiveJob(null);
-          } catch (err: any) {
-            Alert.alert("Error", err.response?.data?.message || "Failed to cancel");
-          }
-        },
-      },
-    ]);
+    showConfirm("Cancel Broadcast", "Are you sure you want to cancel this broadcast?", async () => {
+      try {
+        await notificationAPI.cancelBroadcast(jobId);
+        if (pollRef.current) clearInterval(pollRef.current);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        setActiveJob(null);
+      } catch (err: any) {
+        showError("Error", err.response?.data?.message || "Failed to cancel");
+      }
+    }, "Yes, Cancel");
   };
 
   const formatCountdown = (seconds: number) => {
@@ -747,6 +736,7 @@ export const PushNotificationScreenAdmin = ({ navigation }: any) => {
           </>
         )}
       </ScrollView>
+      <PopupElement />
     </View>
   );
 };

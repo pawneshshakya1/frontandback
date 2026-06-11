@@ -7,7 +7,6 @@ import {
     ScrollView,
     StatusBar,
     Dimensions,
-    Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,11 +16,13 @@ import { COLORS, SPACING, RADIUS } from '../../theme/colors';
 import { adminAPI } from '../../services/api';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { EmptyState } from '../../components/EmptyState';
+import { usePopup } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 
 export const WalletScreenAdmin = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const { showInfo, PopupElement } = usePopup();
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
         totalPlatformVolume: 0,
@@ -112,7 +113,7 @@ export const WalletScreenAdmin = ({ navigation }: any) => {
                         <TouchableOpacity
                           style={styles.actionBtn}
                           onPress={() =>
-                            Alert.alert(
+                            showInfo(
                               "Pending Withdrawals",
                               stats.pendingWithdrawals.count > 0
                                 ? `${stats.pendingWithdrawals.count} withdrawal(s) totaling ${formatCurrency(stats.pendingWithdrawals.total)} pending review.`
@@ -131,7 +132,7 @@ export const WalletScreenAdmin = ({ navigation }: any) => {
                         <TouchableOpacity
                           style={[styles.actionBtn, { backgroundColor: `${COLORS.textMuted}0D`, borderColor: COLORS.border }]}
                           onPress={() =>
-                            Alert.alert(
+                            showInfo(
                               "Coming Soon",
                               "Fee settings will be available soon",
                             )
@@ -217,6 +218,7 @@ export const WalletScreenAdmin = ({ navigation }: any) => {
 
                 </ScrollView>
             )}
+            <PopupElement />
         </View>
     );
 };
@@ -249,7 +251,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingBottom: 20,
         zIndex: 10,
     },
@@ -271,7 +273,7 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
     },
     scrollContent: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingBottom: 100,
     },
     heroCard: {

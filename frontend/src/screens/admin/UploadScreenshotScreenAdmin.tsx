@@ -7,7 +7,6 @@ import {
     Image,
     ScrollView,
     TextInput,
-    Alert,
     ActivityIndicator,
     KeyboardAvoidingView,
     Platform,
@@ -19,9 +18,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import api from '../../services/api';
+import { usePopup } from "../../components/PopupModal";
 
 export const UploadScreenshotScreenAdmin = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const { showError, showSuccess, PopupElement } = usePopup();
     const [matches, setMatches] = useState<any[]>([]);
     const [selectedMatch, setSelectedMatch] = useState<any>(null);
     const [image, setImage] = useState<string | null>(null);
@@ -64,9 +65,9 @@ export const UploadScreenshotScreenAdmin = ({ navigation }: any) => {
     };
 
     const handleSubmit = async () => {
-        if (!selectedMatch) return Alert.alert("Required", "Please select a match.");
-        if (!image) return Alert.alert("Required", "Please upload a screenshot.");
-        if (!kills) return Alert.alert("Required", "Please enter your kill count.");
+        if (!selectedMatch) { showError("Required", "Please select a match."); return; }
+        if (!image) { showError("Required", "Please upload a screenshot."); return; }
+        if (!kills) { showError("Required", "Please enter your kill count."); return; }
 
         try {
             setSubmitting(true);
@@ -78,11 +79,10 @@ export const UploadScreenshotScreenAdmin = ({ navigation }: any) => {
                 screenshot_urls: [fakeImageUrl]
             });
 
-            Alert.alert("Success", "Result submitted for review!", [
-                { text: "OK", onPress: () => navigation.goBack() }
-            ]);
+            showSuccess("Success", "Result submitted for review!");
+            setTimeout(() => navigation.goBack(), 1500);
         } catch (error: any) {
-            Alert.alert("Error", error.response?.data?.message || "Failed to submit result.");
+            showError("Error", error.response?.data?.message || "Failed to submit result.");
         } finally {
             setSubmitting(false);
         }
@@ -219,6 +219,7 @@ export const UploadScreenshotScreenAdmin = ({ navigation }: any) => {
                     </TouchableOpacity>
                 </BlurView>
             </KeyboardAvoidingView>
+            <PopupElement />
         </View>
     );
 };
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         paddingBottom: 12,
     },
     backBtn: {
@@ -271,7 +272,7 @@ const styles = StyleSheet.create({
         color: "white",
     },
     content: {
-        padding: 24,
+        padding: 16,
     },
     sectionTitle: {
         color: 'rgba(255,255,255,0.5)',
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        paddingHorizontal: 20,
+        paddingHorizontal: 16,
         paddingTop: 20,
         borderTopWidth: 1,
         borderTopColor: 'rgba(255,255,255,0.1)',

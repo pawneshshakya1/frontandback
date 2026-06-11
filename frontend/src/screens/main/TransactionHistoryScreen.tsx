@@ -407,7 +407,7 @@ export const TransactionHistoryScreen = ({ navigation }: any) => {
         onRequestClose={() => setShowDateModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <BlurView intensity={20} style={StyleSheet.absoluteFill} tint="dark" />
+          <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark" />
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Filter by date</Text>
@@ -670,10 +670,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 16,
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    width: "92%",
+    width: "100%",
+    maxWidth: 340,
     backgroundColor: COLORS.surface,
     borderRadius: 24,
     padding: 20,

@@ -22,9 +22,12 @@ interface Props {
   currentTier: string;
   handleUpgradeTier: (tier: string) => void;
   upgrading: boolean;
+  tiers?: any[];
+  allUpgradable?: boolean;
+  tierOrder?: string[];
 }
 
-const allTiers = [
+const DEFAULT_TIERS = [
   {
     key: "standard",
     name: "Standard",
@@ -87,9 +90,10 @@ const allTiers = [
 const R = 24;
 const dashLen = 800;
 
-export const PartnerUpgrade = ({ currentTier, handleUpgradeTier, upgrading }: Props) => {
+export const PartnerUpgrade = ({ currentTier, handleUpgradeTier, upgrading, tiers, allUpgradable, tierOrder }: Props) => {
   const snakeProgress = useRef(new Animated.Value(0)).current;
   const [cardSize, setCardSize] = useState({ w: 0, h: 0 });
+  const allTiers = tiers || DEFAULT_TIERS;
 
   useEffect(() => {
     const anim = Animated.loop(
@@ -126,10 +130,16 @@ export const PartnerUpgrade = ({ currentTier, handleUpgradeTier, upgrading }: Pr
 
       {allTiers.map((tier) => {
         const isCurrent = tier.key === currentTier;
-        const isUpgrade =
-          (currentTier === "standard" &&
-            (tier.key === "sponsored" || tier.key === "premium")) ||
-          (currentTier === "sponsored" && tier.key === "premium");
+        const canUpgrade = tierOrder
+          ? (() => {
+              const curIdx = tierOrder.indexOf(currentTier);
+              const thisIdx = tierOrder.indexOf(tier.key);
+              return curIdx >= 0 && thisIdx > curIdx;
+            })()
+          : (currentTier === "standard" &&
+              (tier.key === "sponsored" || tier.key === "premium")) ||
+            (currentTier === "sponsored" && tier.key === "premium");
+        const isUpgrade = allUpgradable || canUpgrade;
 
         return (
           <View
@@ -138,9 +148,9 @@ export const PartnerUpgrade = ({ currentTier, handleUpgradeTier, upgrading }: Pr
             onLayout={
               isCurrent
                 ? (e) => {
-                    const { width, height } = e.nativeEvent.layout;
-                    setCardSize({ w: width, h: height });
-                  }
+                  const { width, height } = e.nativeEvent.layout;
+                  setCardSize({ w: width, h: height });
+                }
                 : undefined
             }
           >
@@ -265,10 +275,10 @@ export const PartnerUpgrade = ({ currentTier, handleUpgradeTier, upgrading }: Pr
                     isUpgrade
                       ? { backgroundColor: "#f47b25" }
                       : {
-                          backgroundColor: "rgba(239,68,68,0.1)",
-                          borderWidth: 1,
-                          borderColor: "rgba(239,68,68,0.25)",
-                        },
+                        backgroundColor: "rgba(239,68,68,0.1)",
+                        borderWidth: 1,
+                        borderColor: "rgba(239,68,68,0.25)",
+                      },
                   ]}
                   onPress={() => isUpgrade && handleUpgradeTier(tier.key)}
                   disabled={!isUpgrade || upgrading}
@@ -284,7 +294,11 @@ export const PartnerUpgrade = ({ currentTier, handleUpgradeTier, upgrading }: Pr
                       { color: isUpgrade ? "white" : "#ef4444" },
                     ]}
                   >
-                    {isUpgrade ? "UPGRADE NOW" : "DOWNGRADE"}
+                    {isUpgrade
+                      ? allUpgradable
+                        ? "BECOME A PARTNER"
+                        : "UPGRADE NOW"
+                      : "DOWNGRADE"}
                   </Text>
                 </TouchableOpacity>
               ) : (

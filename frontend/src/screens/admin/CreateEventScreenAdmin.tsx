@@ -7,7 +7,6 @@ import {
     TextInput,
     TouchableOpacity,
     Switch,
-    Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,9 +14,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, SPACING, RADIUS } from '../../theme/colors';
 import { adminAPI } from '../../services/api';
 import { Button } from '../../components/Button';
+import { usePopup } from "../../components/PopupModal";
 
 export const CreateEventScreenAdmin = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const { showError, showSuccess, PopupElement } = usePopup();
     const [eventType, setEventType] = useState<"STANDARD" | "SPONSORED" | "PREMIUM">("STANDARD");
     const [loading, setLoading] = useState(false);
 
@@ -47,11 +48,11 @@ export const CreateEventScreenAdmin = ({ navigation }: any) => {
 
     const validateForm = () => {
         if (!formData.title || !formData.match_date || !formData.match_time) {
-            Alert.alert("Error", "Please fill in all required fields (Title, Date, Time)");
+            showError("Error", "Please fill in all required fields (Title, Date, Time)");
             return false;
         }
         if (eventType === "SPONSORED" && !formData.sponsor_name) {
-            Alert.alert("Error", "Sponsor Name is required for Sponsored Events");
+            showError("Error", "Sponsor Name is required for Sponsored Events");
             return false;
         }
         return true;
@@ -90,15 +91,14 @@ export const CreateEventScreenAdmin = ({ navigation }: any) => {
                 const msg = publish
                     ? "Event created and published! Notifications sent to all users."
                     : "Event saved as DRAFT. You can edit and publish later.";
-                Alert.alert("Success", msg, [
-                    { text: "OK", onPress: () => navigation.goBack() },
-                ]);
+                showSuccess("Success", msg);
+                setTimeout(() => navigation.goBack(), 1500);
             } else {
-                Alert.alert("Error", response.data.message || "Failed to create event");
+                showError("Error", response.data.message || "Failed to create event");
             }
         } catch (error: any) {
             console.error(error);
-            Alert.alert("Error", error.response?.data?.message || "Something went wrong");
+            showError("Error", error.response?.data?.message || "Something went wrong");
         } finally {
             setLoading(false);
         }
@@ -303,6 +303,7 @@ export const CreateEventScreenAdmin = ({ navigation }: any) => {
                 </Text>
 
             </ScrollView>
+            <PopupElement />
         </View>
     );
 };

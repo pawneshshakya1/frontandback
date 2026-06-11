@@ -6,6 +6,7 @@
 const crypto = require('crypto');
 const Match = require('../models/match.model');
 const User = require('../models/user.model');
+const ElitePass = require('../models/elitePass.model');
 const emailService = require('./email.service');
 const friendService = require('./friend.service');
 const spendAnalyticsService = require('./user-spend-analytics.service');
@@ -13,10 +14,64 @@ const credentialsService = require('./match-credentials.service');
 const { getMatchStartDateTime } = require('../utils/match-time.util');
 const { broadcast, broadcastToUser, broadcastToUsers } = require('../utils/sse');
 
-// Pass-driven event quota (user Elite Pass tier → total events per pass window).
-// User passes (pro/elite/supreme) carry a total event_count for the pass duration,
-// not a daily limit. Partners / Admins / users with no pass have their own rules.
-const DAILY_EVENT_LIMITS = { none: 1, pro: 3, elite: 5, supreme: 10 };
+// Default limits for users without any pass
+const DEFAULT_DAILY_LIMIT = 1;
+
+// Cache for dynamic pass limits (refreshes every 5 minutes)
+let passLimitsCache = {
+  data: null,
+  updatedAt: null,
+  cacheDuration: 5 * 60 * 1000, // 5 minutes
+};
+
+const invalidatePassLimitsCache = () => {
+  passLimitsCache.data = null;
+  passLimitsCache.updatedAt = null;
+};
+
+const getPassLimits = async () => {
+  const now = Date.now();
+  if (passLimitsCache.data && (now - passLimitsCache.updatedAt) < passLimitsCache.cacheDuration) {
+    return passLimitsCache.data;
+  }
+
+  try {
+    const passes = await ElitePass.find({ is_active: true, pass_category: 'user' }).select('pass_type event_count color name duration_days');
+    const limits = {
+      daily: {},
+      total: {},
+      passConfig: {},
+    };
+
+    for (const pass of passes) {
+      const passType = pass.pass_type;
+      const eventCount = pass.event_count || 30;
+      limits.total[passType] = eventCount;
+      // For user passes, daily limit is calculated as total/duration + some buffer
+      // Default: roughly 1/3 of total events per day for 30 days
+      const dailyLimit = Math.max(1, Math.ceil(eventCount / pass.duration_days));
+      limits.daily[passType] = dailyLimit;
+      limits.passConfig[passType] = {
+        event_count: eventCount,
+        duration_days: pass.duration_days,
+        color: pass.color,
+        name: pass.name,
+      };
+    }
+
+    passLimitsCache.data = limits;
+    passLimitsCache.updatedAt = now;
+    return limits;
+  } catch (error) {
+    console.error('Error fetching pass limits:', error);
+    // Return minimal defaults
+    return {
+      daily: { none: 1 },
+      total: {},
+      passConfig: {},
+    };
+  }
+};
 
 // 16-byte hex token used for share links (e.g. battlecore://event/<token>).
 const generateShareToken = () => crypto.randomBytes(16).toString('hex');
@@ -33,31 +88,112 @@ const generateInviteCode = () => {
 
 const getEffectivePassType = async (userId) => {
   const UserPass = require('../models/user-pass.model');
+  const User = require('../models/user.model');
   const activePass = await UserPass.findOne({
     user_id: userId,
     status: 'ACTIVE',
     expires_at: { $gt: new Date() },
   }).sort({ expires_at: -1 });
 
-  if (!activePass) return 'none';
+  if (activePass) {
+    const now = new Date();
+    const lastReset = activePass.last_daily_reset || new Date(0);
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const now = new Date();
-  const lastReset = activePass.last_daily_reset || new Date(0);
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  if (lastReset < todayStart) {
-    activePass.daily_events_used = 0;
-    activePass.last_daily_reset = now;
-    await activePass.save();
+    if (lastReset < todayStart) {
+      activePass.daily_events_used = 0;
+      activePass.last_daily_reset = now;
+      await activePass.save();
+    }
+    return activePass.pass_type;
   }
 
-  return activePass.pass_type;
+  // Fallback: check User model for old purchases (before UserPass tracking)
+  const user = await User.findById(userId).select('pass_type pass_expiry').lean();
+  if (user && user.pass_type && user.pass_type !== 'none' && user.pass_expiry && new Date(user.pass_expiry) > new Date()) {
+    return user.pass_type;
+  }
+
+  return 'none';
 };
 
 const getDailyEventCount = async (userId) => {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   return Match.countDocuments({ created_by: userId, createdAt: { $gte: todayStart } });
+};
+
+// Get total event limit info for Elite Pass holders
+const getTotalEventLimit = async (userId) => {
+  const User = require('../models/user.model');
+
+  const user = await User.findById(userId).select('pass_type pass_expiry pass_event_count pass_events_used role');
+  if (!user) return null;
+
+  if (user.role === 'ADMIN' || user.role === 'PARTNER') {
+    return {
+      is_unlimited: true,
+      pass_type: user.role.toLowerCase(),
+      total_limit: -1,
+      used: 0,
+      remaining: -1
+    };
+  }
+
+  const passType = await getEffectivePassType(userId);
+  const limits = await getPassLimits();
+
+  // Check if user has active Elite Pass (not 'none')
+  if (passType === 'none' || !limits.passConfig[passType]) {
+    // Fallback: check User model for old purchases
+    const hasUserModelPass = user.pass_type && user.pass_type !== 'none'
+      && user.pass_expiry && new Date(user.pass_expiry) > new Date()
+      && user.pass_event_count;
+
+    if (hasUserModelPass) {
+      const used = user.pass_events_used || 0;
+      const remaining = Math.max(0, user.pass_event_count - used);
+      return {
+        pass_type: user.pass_type,
+        total_limit: user.pass_event_count,
+        used: used,
+        remaining: remaining,
+        is_unlimited: false,
+        pass_expiry: user.pass_expiry,
+        pass_name: null,
+        daily_limit: limits.daily[user.pass_type] || DEFAULT_DAILY_LIMIT,
+        limit_type: 'total',
+      };
+    }
+
+    return {
+      is_unlimited: false,
+      pass_type: passType,
+      total_limit: limits.total[passType] || null,
+      used: user.pass_events_used || 0,
+      remaining: 0,
+      daily_limit: limits.daily[passType] || DEFAULT_DAILY_LIMIT,
+      limit_type: 'daily',
+    };
+  }
+
+  const passConfig = limits.passConfig[passType];
+  const totalLimit = passConfig.event_count;
+  const used = user.pass_events_used || 0;
+  const remaining = Math.max(0, totalLimit - used);
+
+  return {
+    pass_type: passType,
+    total_limit: totalLimit,
+    used: used,
+    remaining: remaining,
+    is_unlimited: false,
+    pass_expiry: user.pass_expiry,
+    pass_name: passConfig.name,
+    pass_color: passConfig.color,
+    daily_limit: limits.daily[passType] || DEFAULT_DAILY_LIMIT,
+    limit_type: 'total',
+  };
 };
 
 const checkMatchStatus = async (match) => {
@@ -95,26 +231,31 @@ const createMatch = async (userId, matchData) => {
   }
 
   // ============ ELITE PASS EVENT QUOTA (USER ELITE PASS HOLDERS) ============
-  // For non-partner, non-admin users with an active user Elite Pass (pro/elite/supreme),
+  // For non-partner, non-admin users with an active user Elite Pass,
   // enforce a total event count quota (per active pass window) instead of a daily limit.
+  // Limits are dynamically read from ElitePass collection in database.
   let isEliteUser = false;
   if (user.role !== 'ADMIN' && user.role !== 'PARTNER') {
     const passType = await getEffectivePassType(userId);
-    if (['pro', 'elite', 'supreme'].includes(passType) && user.pass_event_count) {
+    const limits = await getPassLimits();
+    const passConfig = limits.passConfig[passType];
+
+    if (passConfig && user.pass_event_count) {
+      // User has an Elite Pass with event_count configured
       isEliteUser = true;
       const used = user.pass_events_used || 0;
       const total = user.pass_event_count;
       if (used >= total) {
         throw new Error(
-          `Event limit reached (${used}/${total}). Your pass quota is exhausted for this cycle.`
+          `Event limit reached (${used}/${total}). Your ${passConfig.name || passType} Pass quota is exhausted for this cycle.`
         );
       }
     } else {
-      // Fallback daily limit for non-elite users
-      const dailyLimit = DAILY_EVENT_LIMITS[passType] || 1;
+      // Fallback daily limit for non-elite users or users without pass config
+      const dailyLimit = limits.daily[passType] || DEFAULT_DAILY_LIMIT;
       const todayCount = await getDailyEventCount(userId);
       if (todayCount >= dailyLimit) {
-        const passName = passType === 'none' ? 'Free' : passType.charAt(0).toUpperCase() + passType.slice(1);
+        const passName = passType === 'none' ? 'Free' : (passConfig?.name || passType.charAt(0).toUpperCase() + passType.slice(1));
         throw new Error(
           `Daily event limit reached (${todayCount}/${dailyLimit}). ` +
           (passType === 'none' ? 'Upgrade to an Elite Pass to create more events!' : `Your ${passName} Pass allows ${dailyLimit} events/day.`)
@@ -578,5 +719,7 @@ module.exports = {
   generateInviteCode,
   getEffectivePassType,
   getDailyEventCount,
-  DAILY_EVENT_LIMITS,
+  getTotalEventLimit,
+  getPassLimits,
+  invalidatePassLimitsCache,
 };

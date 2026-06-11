@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   RefreshControl,
   Modal,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,6 +17,7 @@ import { BlurView } from "expo-blur";
 import api from "../../services/api";
 import { COLORS } from "../../theme/colors";
 import { EmptyState } from "../../components/EmptyState";
+import { usePopup } from "../../components/PopupModal";
 
 export const PaymentDashboardAdmin = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
@@ -29,6 +29,7 @@ export const PaymentDashboardAdmin = ({ navigation }: any) => {
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showError, PopupElement } = usePopup();
 
   useEffect(() => {
     loadData();
@@ -48,7 +49,7 @@ export const PaymentDashboardAdmin = ({ navigation }: any) => {
     } catch (error) {
       console.error("Failed to load payment data:", error);
       setError("Failed to load payment data. Please try again.");
-      Alert.alert("Error", "Failed to load payment data");
+      showError("Error", "Failed to load payment data");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -289,11 +290,8 @@ export const PaymentDashboardAdmin = ({ navigation }: any) => {
         animationType="slide"
         onRequestClose={() => setIsModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setIsModalVisible(false)}
-        >
+        <View style={styles.modalOverlay}>
+          <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
           <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
             {selectedPayment && (
               <>
@@ -333,8 +331,9 @@ export const PaymentDashboardAdmin = ({ navigation }: any) => {
               </>
             )}
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
       </Modal>
+      <PopupElement />
     </View>
   );
 };
@@ -377,7 +376,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 9, fontWeight: "bold" },
   emptyContainer: { alignItems: "center", marginTop: 60, gap: 12 },
   emptyText: { color: "rgba(255,255,255,0.3)", fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
   modalContent: { backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "80%" },
   modalTitle: { color: "white", fontSize: 18, fontWeight: "bold", marginBottom: 16 },
   detailRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Image, Modal, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Image, Modal, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -7,11 +7,13 @@ import api from '../../services/api';
 import { COLORS, SPACING, RADIUS } from '../../theme/colors';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { EmptyState } from '../../components/EmptyState';
+import { usePopup } from '../../components/PopupModal';
 
 const { width } = Dimensions.get('window');
 
 export const MediatorDashboardScreenAdmin = ({ navigation }: any) => {
     const insets = useSafeAreaInsets();
+    const { showSuccess, showError, PopupElement } = usePopup();
     const [matches, setMatches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedMatch, setSelectedMatch] = useState<any>(null);
@@ -57,12 +59,12 @@ export const MediatorDashboardScreenAdmin = ({ navigation }: any) => {
         try {
             setLoading(true);
             await api.post(`/matches/${selectedMatch._id}/approve`);
-            Alert.alert("Success", "Match result approved!");
+            showSuccess("Success", "Match result approved!");
             setModalVisible(false);
             setTimerActive(false);
             fetchMediatorMatches();
         } catch (err: any) {
-            Alert.alert("Error", err.message || "Failed to approve");
+            showError("Error", err.message || "Failed to approve");
         } finally {
             setLoading(false);
         }
@@ -123,6 +125,7 @@ export const MediatorDashboardScreenAdmin = ({ navigation }: any) => {
                 onRequestClose={() => setModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
+                    <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Result Review</Text>
@@ -159,6 +162,7 @@ export const MediatorDashboardScreenAdmin = ({ navigation }: any) => {
                     </View>
                 </View>
             </Modal>
+            <PopupElement />
         </View>
     );
 };
@@ -234,8 +238,7 @@ const styles = StyleSheet.create({
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: `${COLORS.backgroundDark}CC`,
-        justifyContent: 'center',
+        justifyContent: "center",
         padding: 16
     },
     modalContent: {

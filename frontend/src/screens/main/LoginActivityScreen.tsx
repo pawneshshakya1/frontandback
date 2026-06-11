@@ -7,44 +7,78 @@ import {
   StatusBar,
   ScrollView,
   Platform,
-  Alert,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { authAPI } from "../../services/api";
+import { PopupModal } from "../../components/PopupModal";
 
 export const LoginActivityScreen = ({ navigation }: any) => {
   const insets = useSafeAreaInsets();
+  const [popup, setPopup] = React.useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttons?: any[];
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const handleLogoutSession = async (sessionId: number) => {
     try {
       await authAPI.logout();
-      Alert.alert('Success', 'Session terminated');
+      setPopup({
+        visible: true,
+        type: 'success',
+        title: 'Success',
+        message: 'Session terminated',
+      });
     } catch (e) {
-      Alert.alert('Error', 'Failed to logout session');
+      setPopup({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'Failed to logout session',
+      });
     }
   };
 
   const handleLogoutAll = async () => {
-    Alert.alert(
-      'Logout All Sessions',
-      'Are you sure you want to logout from all other devices?',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    setPopup({
+      visible: true,
+      type: 'warning',
+      title: 'Logout All Sessions',
+      message: 'Are you sure you want to logout from all other devices?',
+      buttons: [
+        {
+          text: 'Cancel',
+          onPress: () => setPopup((prev) => ({ ...prev, visible: false })),
+          style: 'ghost',
+        },
         {
           text: 'Logout All',
-          style: 'destructive',
+          style: 'danger',
           onPress: async () => {
+            setPopup((prev) => ({ ...prev, visible: false }));
             try {
               await authAPI.logout();
               navigation.navigate('Login');
             } catch (e) {
-              Alert.alert('Error', 'Failed to logout');
+              setPopup({
+                visible: true,
+                type: 'error',
+                title: 'Error',
+                message: 'Failed to logout',
+              });
             }
-          }
-        }
-      ]
-    );
+          },
+        },
+      ],
+    });
   };
 
   const sessions = [
@@ -135,6 +169,15 @@ export const LoginActivityScreen = ({ navigation }: any) => {
           <Text style={styles.logoutAllText}>LOG OUT OF ALL OTHER SESSIONS</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <PopupModal
+        visible={popup.visible}
+        type={popup.type}
+        title={popup.title}
+        message={popup.message}
+        buttons={popup.buttons}
+        onClose={() => setPopup((prev) => ({ ...prev, visible: false }))}
+      />
     </View>
   );
 };
@@ -147,7 +190,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingBottom: 24,
   },
   backButton: {
@@ -169,7 +212,7 @@ const styles = StyleSheet.create({
     marginRight: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 40,
   },
   sectionTitle: {

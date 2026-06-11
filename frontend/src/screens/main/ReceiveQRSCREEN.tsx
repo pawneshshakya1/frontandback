@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: 16,
     paddingBottom: SPACING.md,
     zIndex: 10,
   },
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   /* Scroll */
   scrollView: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: 16,
     paddingTop: SPACING.md,
   },
 
